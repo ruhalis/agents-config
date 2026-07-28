@@ -21,31 +21,43 @@ ln -sfn "$REPO_DIR/statusline" "$CLAUDE_DIR/statusline"
 chmod +x "$REPO_DIR/statusline/statusline.sh"
 echo "  statusline -> $CLAUDE_DIR/statusline"
 
+# Sweep a directory clean: anything not symlinked into this repo is moved to
+# the backup dir, so after install the directory mirrors the repo exactly.
+sweep_dir() {
+    local dir="$1" backup_subdir="$2"
+    [ -d "$dir" ] || return 0
+    local entry name
+    for entry in "$dir"/* "$dir"/.[!.]*; do
+        [ -e "$entry" ] || [ -L "$entry" ] || continue
+        name=$(basename "$entry")
+        if [ -L "$entry" ]; then
+            case "$(readlink "$entry")" in
+                "$REPO_DIR"/*) rm "$entry"; continue ;;  # stale repo link, will be recreated
+            esac
+        fi
+        mkdir -p "$BACKUP_DIR/$backup_subdir"
+        echo "Backing up existing $backup_subdir/$name to $BACKUP_DIR/$backup_subdir/$name"
+        mv "$entry" "$BACKUP_DIR/$backup_subdir/$name"
+    done
+}
+
 # --- skills ---
 mkdir -p "$CLAUDE_DIR/skills"
+sweep_dir "$CLAUDE_DIR/skills" "skills"
 for skill_dir in "$REPO_DIR/skills"/*/; do
     skill_name=$(basename "$skill_dir")
     target="$CLAUDE_DIR/skills/$skill_name"
-    if [ -d "$target" ] && [ ! -L "$target" ]; then
-        mkdir -p "$BACKUP_DIR/skills"
-        echo "Backing up existing skill $skill_name to $BACKUP_DIR/skills/$skill_name"
-        mv "$target" "$BACKUP_DIR/skills/$skill_name"
-    fi
-    ln -sfn "$skill_dir" "$target"
+    ln -sfn "${skill_dir%/}" "$target"
     echo "  skill: $skill_name -> $target"
 done
 
 # --- agents ---
 mkdir -p "$CLAUDE_DIR/agents"
+sweep_dir "$CLAUDE_DIR/agents" "agents"
 for agent_file in "$REPO_DIR/agents"/*.md; do
     [ -e "$agent_file" ] || continue
     agent_name=$(basename "$agent_file")
     target="$CLAUDE_DIR/agents/$agent_name"
-    if [ -f "$target" ] && [ ! -L "$target" ]; then
-        mkdir -p "$BACKUP_DIR/agents"
-        echo "Backing up existing agent $agent_name to $BACKUP_DIR/agents/$agent_name"
-        mv "$target" "$BACKUP_DIR/agents/$agent_name"
-    fi
     ln -sfn "$agent_file" "$target"
     echo "  agent: $agent_name -> $target"
 done

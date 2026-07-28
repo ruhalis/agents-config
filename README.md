@@ -8,7 +8,7 @@ cd ~/projects/claude-config
 ./install.sh
 ```
 
-`install.sh` is idempotent and backs up any pre-existing real files to `*.bak` (gitignored) before linking.
+`install.sh` is idempotent and treats the repo as the source of truth: `~/.claude/skills/` and `~/.claude/agents/` are swept clean, so after install they contain exactly what the repo ships — nothing else. Anything pre-existing (skills, agents, statusline, CLAUDE.md, settings, keybindings) is backed up first, to `~/.claude/backups/<timestamp>/` or `*.bak`, never deleted.
 
 ## What it installs
 
