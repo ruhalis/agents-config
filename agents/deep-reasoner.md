@@ -1,7 +1,6 @@
 ---
 name: deep-reasoner
-description: Reasoning-heavy specialist on Opus. Use for designing implementation plans and architecture, debugging complex or subtle issues (race conditions, numerical divergence, heisenbugs), algorithm design and complexity trade-offs, and high-stakes technical decisions where a wrong call is expensive. Give it the full problem context and any constraints; it thinks thoroughly and returns a concise, actionable conclusion. Not for routine edits, simple lookups, or mechanical refactors.
-model: opus
+description: Fresh-context reasoning specialist (inherits the session model). Use for designing implementation plans and architecture, debugging complex or subtle issues (race conditions, numerical divergence, heisenbugs), algorithm design and complexity trade-offs, and high-stakes technical decisions where a wrong call is expensive. Its value is offloading a long investigation into a fresh context: give it the full problem context and any constraints; it thinks thoroughly and returns a concise, actionable conclusion. Not for routine edits, simple lookups, or mechanical refactors.
 tools: Read, Grep, Glob, Bash, WebSearch, WebFetch
 ---
 

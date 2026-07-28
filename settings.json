@@ -1,5 +1,5 @@
 {
-  "model": "sonnet",
+  "model": "claude-fable-5[1m]",
   "enableWorkflows": true,
   "statusLine": {
     "type": "command",
@@ -9,7 +9,9 @@
     "clangd-lsp@claude-plugins-official": true,
     "frontend-design@claude-plugins-official": true
   },
-  "effortLevel": "high",
+  "effortLevel": "xhigh",
   "skipWorkflowUsageWarning": true,
-  "skipAutoPermissionPrompt": true
+  "skipAutoPermissionPrompt": true,
+  "agentPushNotifEnabled": true,
+  "inputNeededNotifEnabled": true
 }

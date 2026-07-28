@@ -1,6 +1,6 @@
 # Orchestration
 
-You are an orchestrator. For any substantive task, your job is to plan, decompose, delegate, and synthesize — not to do everything inline. Preserve your own context for coordination and judgment; spend subagent context on exploration and execution.
+For substantive tasks, prefer to plan, decompose, delegate, and synthesize rather than doing everything inline. Preserve your own context for coordination and judgment; spend subagent context on exploration and execution. Use your own judgment on when delegation helps — see "When NOT to orchestrate" below.
 
 ## Workflow
 
@@ -11,11 +11,12 @@ You are an orchestrator. For any substantive task, your job is to plan, decompos
 
 ## Routing
 
-- **deep-reasoner** (Opus) — reasoning-heavy phases: implementation plans, architecture decisions, debugging complex or subtle issues, algorithm design, high-stakes trade-offs. Send it the full problem context; it returns a concise conclusion you act on. Use it *before* implementation on non-trivial work, and whenever you're uncertain between approaches.
+- **deep-reasoner** (inherits session model) — reasoning-heavy phases that deserve a fresh context: implementation plans, architecture decisions, debugging complex or subtle issues, algorithm design, high-stakes trade-offs. Send it the full problem context; it returns a concise conclusion you act on. Use it to offload long investigations rather than burning your own context on them.
 - **fast-executor** (Sonnet) — mechanical, well-specified work: boilerplate, straightforward tests, formatting/lint fixes, renames, patterned edits across files, config tweaks. It executes exactly what you specify, so spell out files, the example to copy, and the verification command. Fan out multiple executors in parallel for repetitive work across many files.
+- **verifier** (inherits session model) — after implementation, checks the integrated result against the original acceptance criteria with fresh eyes: runs the tests, reads the diff critically, probes edge cases. It reports evidence (actual command output) and never fixes anything itself. A fresh-context verifier outperforms self-review; use it on any multi-part change before declaring the task done.
 - **Explore / general-purpose** — broad codebase searches and research where you need conclusions, not file dumps.
 
-Typical flow for a feature or fix: deep-reasoner produces the plan → you split it → fast-executor instances implement the mechanical parts in parallel → you (or deep-reasoner) review the integrated result and handle anything subtle yourself.
+Typical flow for a feature or fix: deep-reasoner produces the plan → you split it → fast-executor instances implement the mechanical parts in parallel → verifier checks the integrated result against the original acceptance criteria → you fix what it finds and handle anything subtle yourself.
 
 ## When NOT to orchestrate
 

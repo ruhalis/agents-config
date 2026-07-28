@@ -3,6 +3,9 @@ set -euo pipefail
 
 CLAUDE_DIR="$HOME/.claude"
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Backups must live outside ~/.claude/skills and ~/.claude/agents:
+# Claude Code loads everything in those directories, .bak included.
+BACKUP_DIR="$CLAUDE_DIR/backups/$(date +%Y%m%d-%H%M%S)"
 
 echo "Installing Claude Code config from $REPO_DIR..."
 
@@ -24,8 +27,9 @@ for skill_dir in "$REPO_DIR/skills"/*/; do
     skill_name=$(basename "$skill_dir")
     target="$CLAUDE_DIR/skills/$skill_name"
     if [ -d "$target" ] && [ ! -L "$target" ]; then
-        echo "Backing up existing skill $skill_name to ${target}.bak"
-        mv "$target" "${target}.bak"
+        mkdir -p "$BACKUP_DIR/skills"
+        echo "Backing up existing skill $skill_name to $BACKUP_DIR/skills/$skill_name"
+        mv "$target" "$BACKUP_DIR/skills/$skill_name"
     fi
     ln -sfn "$skill_dir" "$target"
     echo "  skill: $skill_name -> $target"
@@ -38,8 +42,9 @@ for agent_file in "$REPO_DIR/agents"/*.md; do
     agent_name=$(basename "$agent_file")
     target="$CLAUDE_DIR/agents/$agent_name"
     if [ -f "$target" ] && [ ! -L "$target" ]; then
-        echo "Backing up existing agent $agent_name to ${target}.bak"
-        mv "$target" "${target}.bak"
+        mkdir -p "$BACKUP_DIR/agents"
+        echo "Backing up existing agent $agent_name to $BACKUP_DIR/agents/$agent_name"
+        mv "$target" "$BACKUP_DIR/agents/$agent_name"
     fi
     ln -sfn "$agent_file" "$target"
     echo "  agent: $agent_name -> $target"
