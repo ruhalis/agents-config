@@ -1,0 +1,19 @@
+# Keys this repo manages in ~/.codex/config.toml.
+#
+# install.sh merges these in as a marked block at the top of your existing
+# config.toml — everything else you have there (tui theme, project trust_level
+# entries, mcp_servers) is left untouched. Any pre-existing top-level line
+# setting one of these same keys is commented out, since TOML rejects duplicates.
+#
+# Only put top-level scalar keys here. Tables ([mcp_servers.x]) would land in
+# the wrong place once the block is inserted above your own tables.
+
+# Deliberately not managing `model`: which model you can select depends on your
+# plan and auth mode, and silently repointing it can break a working setup.
+# Set it yourself in ~/.codex/config.toml, or uncomment here to have this repo
+# own it. (Note: gpt-5-codex and the rest of the older Codex line were retired
+# in July 2026 — gpt-5.5 is the current interactive default.)
+#
+# model = "gpt-5.5"
+
+model_reasoning_effort = "xhigh"
