@@ -1,10 +1,10 @@
-# claude-config
+# agents-config
 
 Personal agent configuration for **Claude Code**, **Codex**, and **Cursor**, installed from one source of truth.
 
 ```bash
-git clone --recurse-submodules https://github.com/ruhalis/claude-config ~/projects/claude-config
-cd ~/projects/claude-config
+git clone --recurse-submodules https://github.com/ruhalis/agents-config ~/projects/agents-config
+cd ~/projects/agents-config
 ./install.sh
 ```
 
