@@ -59,7 +59,7 @@ Ports on macOS are `/dev/cu.*`, never `/dev/tty.*` (that one blocks on open). Th
 
 Resolve the port in this order:
 
-1. `CLAUDE.local.md` in the project root. Claude Code loads it every session, so if it has a `## Boards` section you already know the ports:
+1. A `## Boards` section in the project's `CLAUDE.local.md` or `CLAUDE.md`. Claude Code loads both every session, so if either has one you already know the ports:
 
    ```
    ## Boards
@@ -67,7 +67,7 @@ Resolve the port in this order:
    ```
 
 2. A port the user named in this message.
-3. `ls /dev/cu.usbserial-* /dev/cu.SLAB_USBtoUART* /dev/cu.wchusbserial* /dev/cu.usbmodem* 2>/dev/null`. Exactly one: use it and offer to record it in `CLAUDE.local.md` (create the file with just that section if it does not exist, and add `CLAUDE.local.md` to `.gitignore` if it is not there; Claude Code does not do that for you). Zero: say no board is on USB, remind them of the UART connector, and stop. More than one: list them and ask which. Never guess, never loop over ports.
+3. `ls /dev/cu.usbserial-* /dev/cu.SLAB_USBtoUART* /dev/cu.wchusbserial* /dev/cu.usbmodem* 2>/dev/null`. Exactly one: use it and offer to record it under `## Boards` in whichever of those two files the project already uses for it (default `CLAUDE.local.md`: create it with just that section if neither has one, and add `CLAUDE.local.md` to `.gitignore` if it is not there; Claude Code does not do that for you). Zero: say no board is on USB, remind them of the UART connector, and stop. More than one: list them and ask which. Never guess, never loop over ports.
 
 A `usbserial-0001` suffix is a generic serial shared by many cheap bridges, so two such boards cannot be told apart by name; say so and ask the user to plug in one at a time.
 
