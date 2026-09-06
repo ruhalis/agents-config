@@ -1,5 +1,5 @@
 {
-  "model": "claude-fable-5[1m]",
+  "model": "claude-fable-5-1[1m]",
   "enableWorkflows": true,
   "statusLine": {
     "type": "command",
@@ -7,11 +7,25 @@
   },
   "enabledPlugins": {
     "clangd-lsp@claude-plugins-official": true,
-    "frontend-design@claude-plugins-official": true
+    "frontend-design@claude-plugins-official": true,
+    "kicad-happy@kicad-happy": true
+  },
+  "extraKnownMarketplaces": {
+    "kicad-happy": {
+      "source": {
+        "source": "github",
+        "repo": "aklofas/kicad-happy"
+      }
+    }
   },
   "effortLevel": "xhigh",
+  "modelSettings": {
+    "claude-opus-5": {
+      "effortLevel": "xhigh"
+    }
+  },
   "skipWorkflowUsageWarning": true,
-  "skipAutoPermissionPrompt": true,
+  "inputNeededNotifEnabled": true,
   "agentPushNotifEnabled": true,
-  "inputNeededNotifEnabled": true
+  "skipAutoPermissionPrompt": true
 }
