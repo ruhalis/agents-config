@@ -52,4 +52,12 @@ One toolchain per machine, shared by every project: **pure ESP-IDF**, no Arduino
 
 6. `bash ~/.claude/skills/esp-idf/scripts/check_toolchain.sh` should now exit 0 and list the board.
 
+7. Editor, optional. VS Code's clangd extension needs Espressif's esp-clang for IDF projects: the stock clangd has no Xtensa target and rejects the GCC-only flags in the compile database, so it reports missing `freertos/*.h` and `sys/reent.h` on every file. esp-clang is an `on_request` tool in IDF's registry (about 270 MB, lands in `~/.espressif/tools/esp-clang/<version>/esp-clang/bin/`):
+
+   ```bash
+   python3 ~/esp/esp-idf/tools/idf_tools.py install esp-clang
+   ```
+
+   Then per project, what the extension's `ESP-IDF: Configure project for ESP-Clang` command writes: a `.clangd` at the workspace root with `CompileFlags: {Remove: [-f*, -m*]}`, and in the workspace `.vscode/settings.json` (machine-local, gitignore it) `clangd.path` pointing at that `clangd` binary, `clangd.arguments` of `--background-index`, `--query-driver=$HOME/.espressif/tools/**` and `--compile-commands-dir=<project>/build`, plus `C_Cpp.intelliSenseEngine` set to `disabled` so cpptools stops painting a second set of errors. Reload the window. Check without the editor: `clangd --check=main/main.c` with the same arguments, run from the workspace root, should end with `All checks completed, 0 errors`.
+
 Bumping the version later: pick the tag after checking which release line Espressif has in service (<https://github.com/espressif/esp-idf/blob/master/SUPPORT_POLICY.md>), change `idf-version`, then `cd ~/esp/esp-idf && git fetch --tags && git checkout <tag> && git submodule update --init --recursive && ./install.sh <chips>`, and rebuild every project on this machine. A major bump (5.x to 6.x) also removes the legacy peripheral drivers and raises the Python floor, so expect code changes.
