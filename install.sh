@@ -1,19 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Install this repo's agent config into Claude Code, Codex, and/or Cursor.
+# Install this repo's agent config into Claude Code, Codex, and/or Cursor, and
+# its extension list into VS Code.
 #
 #   ./install.sh                    install into every tool detected on this machine
 #   ./install.sh codex              install into one tool
 #   ./install.sh claude cursor      install into several
-#   ./install.sh all                install into all three, detected or not
+#   ./install.sh vscode             install the VS Code extensions that are missing
+#   ./install.sh all                install into all tools, detected or not
 #   ./install.sh --dry-run all      print the plan, change nothing
 #   ./install.sh --project ~/repo cursor
 #                                   write project-level Cursor rules into a repo
 #
 # Layout:
 #   core/          tool-agnostic source of truth (orchestration doc, agents, skills)
-#   adapters/<t>/  per-tool routing tail and settings
+#   adapters/<t>/  per-tool routing tail and settings; adapters/vscode/extensions.txt
 #   build/         generated, gitignored; installed files symlink here
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -38,7 +40,7 @@ note() { printf '    %s%s%s\n' "$DIM" "$1" "$RST"; }
 warn() { printf '    %s! %s%s\n' "$YEL" "$1" "$RST" >&2; }
 die()  { printf '%serror: %s%s\n' "$RED" "$1" "$RST" >&2; exit 1; }
 
-usage() { sed -n '3,26p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0; }
+usage() { awk 'NR == 1 { next } /^#/ { seen = 1; sub(/^# ?/, ""); print; next } seen { exit }' "${BASH_SOURCE[0]}"; exit 0; }
 
 # ------------------------------------------------------------ primitives ----
 
@@ -427,6 +429,63 @@ install_cursor_project() {
     note "commit it to share with the repo, or add .cursor/rules/orchestration.mdc to .git/info/exclude"
 }
 
+# --------------------------------------------------------------- vscode ----
+
+# VS Code's CLI. `code` is only on PATH after "Shell Command: Install 'code'
+# command in PATH" from the Command Palette; fall back to the macOS app bundle.
+vscode_cli() {
+    local c
+    if c=$(command -v code 2>/dev/null); then printf '%s\n' "$c"; return 0; fi
+    c="/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"
+    if [ -x "$c" ]; then printf '%s\n' "$c"; return 0; fi
+    return 1
+}
+
+# Normalise an extension list (stdin) to one lowercase ID per line, sorted, so
+# the lists can be diffed with comm. Marketplace IDs are case-insensitive and
+# `--list-extensions` prints them lowercase. Strips comments and blank lines.
+ext_ids() {
+    awk '{ sub(/#.*/, ""); gsub(/[[:space:]]/, ""); if ($0 != "") print tolower($0) }' | sort -u
+}
+
+install_vscode() {
+    local list="$REPO_DIR/adapters/vscode/extensions.txt" code
+    step "VS Code extensions"
+    [ -f "$list" ] || die "missing $list"
+    code=$(vscode_cli) || {
+        warn "VS Code CLI not found; skipping. Install VS Code, then run \"Shell Command: Install 'code' command in PATH\" from the Command Palette."
+        return 0
+    }
+    note "using $code"
+
+    local wanted have missing extra
+    wanted=$(ext_ids < "$list")
+    have=$("$code" --list-extensions 2>/dev/null | ext_ids)
+    missing=$(comm -23 <(printf '%s\n' "$wanted") <(printf '%s\n' "$have"))
+    extra=$(comm -13 <(printf '%s\n' "$wanted") <(printf '%s\n' "$have"))
+
+    if [ -z "$missing" ]; then
+        note "all $(printf '%s\n' "$wanted" | wc -l | tr -d ' ') extensions already installed"
+    else
+        local args=() id
+        while IFS= read -r id; do
+            say "install $id"
+            args+=(--install-extension "$id")
+        done <<< "$missing"
+        if [ "$DRY_RUN" = 0 ]; then
+            # One invocation: every `code` launch costs a second or two. A
+            # marketplace failure must not abort the rest of the install; the
+            # re-check below reports what did not land.
+            "$code" "${args[@]}" 2>&1 | sed 's/^/      /' || true
+            missing=$(comm -23 <(printf '%s\n' "$wanted") <("$code" --list-extensions 2>/dev/null | ext_ids))
+            [ -z "$missing" ] || warn "not installed: $(printf '%s' "$missing" | tr '\n' ' ')"
+        fi
+    fi
+    # Report, never remove: the list is what a fresh machine should get, not a
+    # ban on installing anything else.
+    [ -z "$extra" ] || note "installed here but not in extensions.txt: $(printf '%s' "$extra" | tr '\n' ' ')"
+}
+
 # ------------------------------------------------------------------ main ----
 
 while [ $# -gt 0 ]; do
@@ -434,10 +493,10 @@ while [ $# -gt 0 ]; do
         -h|--help) usage ;;
         -n|--dry-run) DRY_RUN=1 ;;
         --project) shift; [ $# -gt 0 ] || die "--project needs a path"; PROJECT_DIR="$1" ;;
-        all) TOOLS=(claude codex cursor) ;;
-        claude|codex|cursor) TOOLS+=("$1") ;;
+        all) TOOLS=(claude codex cursor vscode) ;;
+        claude|codex|cursor|vscode) TOOLS+=("$1") ;;
         -*) die "unknown flag: $1 (try --help)" ;;
-        *) die "unknown tool: $1 (expected claude, codex, cursor, or all)" ;;
+        *) die "unknown tool: $1 (expected claude, codex, cursor, vscode, or all)" ;;
     esac
     shift
 done
@@ -446,7 +505,8 @@ if [ ${#TOOLS[@]} -eq 0 ]; then
     for t in claude codex cursor; do
         if command -v "$t" >/dev/null 2>&1 || [ -d "$HOME/.$t" ]; then TOOLS+=("$t"); fi
     done
-    [ ${#TOOLS[@]} -gt 0 ] || die "no supported tool detected; name one explicitly (claude|codex|cursor)"
+    if vscode_cli >/dev/null 2>&1 || [ -d "$HOME/.vscode" ]; then TOOLS+=(vscode); fi
+    [ ${#TOOLS[@]} -gt 0 ] || die "no supported tool detected; name one explicitly (claude|codex|cursor|vscode)"
     note "detected: ${TOOLS[*]}"
 fi
 

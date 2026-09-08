@@ -1,6 +1,6 @@
 # agents-config
 
-Personal agent configuration for **Claude Code**, **Codex**, and **Cursor**, installed from one source of truth.
+Personal agent configuration for **Claude Code**, **Codex**, and **Cursor**, installed from one source of truth — plus the **VS Code** extension set.
 
 ```bash
 git clone --recurse-submodules https://github.com/ruhalis/agents-config ~/projects/agents-config
@@ -12,7 +12,8 @@ cd ~/projects/agents-config
 ./install.sh                     # every tool detected on this machine
 ./install.sh codex               # one tool
 ./install.sh claude cursor       # several
-./install.sh all                 # all three, detected or not
+./install.sh vscode              # install missing VS Code extensions
+./install.sh all                 # all four, detected or not
 ./install.sh --dry-run all       # print the plan, change nothing
 ./install.sh --project ~/repo cursor
                                  # project-level Cursor rules (see "Cursor's gap")
@@ -29,6 +30,7 @@ adapters/
   claude/                routing tail + settings.json + keybindings.json
   codex/                 routing tail + managed config.toml keys + model map
   cursor/                routing tail
+  vscode/                extensions.txt — extension IDs to install
 build/                 generated, gitignored; installed files symlink here
 statusline/            submodule (Claude-only)
 ```
@@ -49,6 +51,16 @@ Everything that *can* be shared is shared. The three agents are authored once in
 | Statusline | `statusline/` (submodule) | — | — |
 
 Symlinked items track repo edits live. The two copies — `settings.json` and `keybindings.json` — are copies precisely because Claude Code rewrites `settings.json` in place when you change the theme or model, and a symlink would push those edits back into the repo. Re-run `install.sh` to update them.
+
+## VS Code extensions
+
+`adapters/vscode/extensions.txt` lists extension IDs, one per line, `#` comments allowed. `./install.sh vscode` — or a bare `./install.sh` when VS Code is detected — installs whichever are missing in a single `code --install-extension` call, always at the latest marketplace version; nothing is pinned. Extensions already on the machine are never removed, including ones the list doesn't mention. Those are reported instead, so you can add them:
+
+```
+installed here but not in extensions.txt: publisher.name
+```
+
+To capture what you've installed since, append the new IDs from `code --list-extensions` to the file. The installer needs the `code` CLI: it looks on `PATH` first, then inside the macOS app bundle. If neither is found it warns and skips — run **Shell Command: Install 'code' command in PATH** from the Command Palette and re-run.
 
 ## How the agents are derived
 
