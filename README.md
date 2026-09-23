@@ -70,6 +70,20 @@ Never edit files under `synced/`: the next sync replaces them and the repo never
 - `package-skills.sh` packages only skills that pass the check, with the root folder named after the skill and the same exclusions as skill-creator's packager (`__pycache__/`, `*.pyc`, `.DS_Store`, `evals/`). An unchanged skill packages to a byte-identical file.
 - `install.sh` runs `check-skills.sh` and `skill-sync-status.sh` after any install that links skills. Both only report.
 
+### What the skills read from a project
+
+The skills hold workflow and boundaries; project facts live in the project, in `CLAUDE.md` (or `CLAUDE.local.md` / `AGENTS.md`) sections with one greppable `key: value` per line. A skill that finds its section missing works the facts out, then offers to write the section.
+
+| Section | Read by | Keys |
+|---|---|---|
+| `## Boards` | esp-idf | `<board name>: <serial port>` |
+| `## Hardware` | kicad-review, robotics-research-brief | `kicad:`, `pins:` (the firmware pin header), `mcu:`, `fab:`, `note:` |
+| `## Motors` | motor-bench | `rule:`, `rig:`, `program:`, `send:`, `probe:`, `moves:`, `stop:`, `user-only:`, `kill:`, `limits:`, `watchdog:`, `supply:`, `direction:`, `log:` |
+| `## Experiments` | rl-experiment-log | `log:`, `run-id:`, `runs:`, `metric:`, `eval:`, `framework:` |
+| `## Where things run` | robotics-research-brief | robot, GPUs and VRAM, Jetson, simulator versions |
+
+Keep this order, `## Boards` first and short: esp-idf reads a fixed 12 lines after its heading, and motor-bench reads up to the next heading. The sections also connect skills: when firmware changes the header `## Hardware` names as `pins:`, esp-idf hands back to kicad-review's pin diff, and a flash or reset of a board wired to ESCs or drivers follows motor-bench as well as esp-idf. led-animation reads the free-form `CLAUDE.md` section on the renderer and the host tooling's README instead; isaac reads the pin from `CLAUDE.md`, `.gitmodules` and `STATUS.md`.
+
 ## VS Code extensions
 
 `adapters/vscode/extensions.txt` lists extension IDs, one per line, `#` comments allowed. `./install.sh vscode` — or a bare `./install.sh` when VS Code is detected — installs whichever are missing in a single `code --install-extension` call, always at the latest marketplace version; nothing is pinned. Extensions already on the machine are never removed, including ones the list doesn't mention. Those are reported instead, so you can add them:
