@@ -8,6 +8,7 @@ set -euo pipefail
 #   ./install.sh codex              install into one tool
 #   ./install.sh claude cursor      install into several
 #   ./install.sh vscode             install the VS Code extensions that are missing
+#   ./install.sh skills             link only the skills, into all three tools
 #   ./install.sh all                install into all tools, detected or not
 #   ./install.sh --dry-run all      print the plan, change nothing
 #   ./install.sh --project ~/repo cursor
@@ -16,6 +17,7 @@ set -euo pipefail
 # Layout:
 #   core/          tool-agnostic source of truth (orchestration doc, agents, skills)
 #   adapters/<t>/  per-tool routing tail and settings; adapters/vscode/extensions.txt
+#   scripts/       skill lint, packaging for claude.ai, claude.ai drift check
 #   build/         generated, gitignored; installed files symlink here
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -50,9 +52,38 @@ mk() {  # mk <dir>
     [ "$DRY_RUN" = 1 ] || mkdir -p "$1"
 }
 
-link() {  # link <src> <dst>
-    say "link $2 -> ${1#"$REPO_DIR"/}"
-    [ "$DRY_RUN" = 1 ] || { mkdir -p "$(dirname "$2")"; ln -sfn "$1" "$2"; }
+# Bookkeeping for link(). GONE: paths backup() and drop() cleared this run, one
+# "<path><TAB><old link target>" per line, so link() can still say what was
+# there; under --dry-run nothing is cleared, and this is how link() knows a real
+# file would have been backed up. LINKED: every dst link() made, or under
+# --dry-run would make, one per line.
+GONE=""
+LINKED=""
+gone() { GONE+="$1"$'\t'"$2"$'\n'; }  # gone <path> <old target, empty if not a link>
+was_gone() {  # was_gone <path> — print its old target; fail if it was not cleared
+    printf '%s' "$GONE" | awk -F'\t' -v p="$1" '$1 == p { t = $2; hit = 1 } END { if (!hit) exit 1; print t }'
+}
+
+# link <src> <dst> — says new, exists (already this link) or replace. Refuses a
+# real file or directory at dst: ln -sfn would overwrite the file, or nest the
+# link inside the directory while the directory stays in use.
+link() {
+    local src="$1" dst="$2" old state
+    if [ -L "$dst" ]; then
+        old=$(readlink "$dst")
+        if [ "$old" = "$src" ]; then state=exists; else state=replace; fi
+    elif old=$(was_gone "$dst"); then
+        if [ "$old" = "$src" ]; then state=exists; else state=replace; fi
+    elif [ -e "$dst" ]; then
+        if [ -d "$dst" ]; then old="directory"; else old="file"; fi
+        warn "$dst is a real $old, not a link; left alone. Move it away and re-run to link ${src#"$REPO_DIR"/}."
+        return 0
+    else
+        state=new
+    fi
+    say "link $(printf '%-7s' "$state") $dst -> ${src#"$REPO_DIR"/}"
+    LINKED+="$dst"$'\n'
+    [ "$DRY_RUN" = 1 ] || { mkdir -p "$(dirname "$dst")"; ln -sfn "$src" "$dst"; }
 }
 
 copy() {  # copy <src> <dst>
@@ -73,6 +104,12 @@ emit() {
     fi
 }
 
+# drop <path> — remove one of our own symlinks; link() recreates it.
+drop() {
+    gone "$1" "$(readlink "$1")"
+    [ "$DRY_RUN" = 1 ] || rm "$1"
+}
+
 # backup <path> <label> — move an existing real file/dir out of the way.
 # Symlinks into this repo are ours; drop them silently, they get recreated.
 backup() {
@@ -80,25 +117,28 @@ backup() {
     [ -e "$path" ] || [ -L "$path" ] || return 0
     if [ -L "$path" ]; then
         case "$(readlink "$path")" in
-            "$REPO_DIR"/*|"$BUILD_DIR"/*) [ "$DRY_RUN" = 1 ] || rm "$path"; return 0 ;;
+            "$REPO_DIR"/*|"$BUILD_DIR"/*) drop "$path"; return 0 ;;
         esac
     fi
     say "backup $path -> $BACKUP_ROOT/$label/"
+    gone "$path" ""
     [ "$DRY_RUN" = 1 ] || {
         mkdir -p "$BACKUP_ROOT/$label"
         mv "$path" "$BACKUP_ROOT/$label/$(basename "$path")"
     }
 }
 
-# sweep_dir <dir> <label> — make dir mirror the repo exactly: everything not
-# ours is backed up. ONLY for directories this repo owns outright (Claude's).
+# sweep_dir <dir> <label> [keep] — make dir mirror the repo exactly: everything
+# not ours is backed up, except entries named in the space-separated keep list.
+# ONLY for directories this repo owns outright (Claude's).
 # Never use on ~/.codex/skills or ~/.cursor/skills: those hold tool-bundled and
 # third-party skills that this repo has no business deleting.
 sweep_dir() {
-    local dir="$1" label="$2" entry
+    local dir="$1" label="$2" keep=" ${3-} " entry
     [ -d "$dir" ] || return 0
     for entry in "$dir"/* "$dir"/.[!.]*; do
         [ -e "$entry" ] || [ -L "$entry" ] || continue
+        case "$keep" in *" ${entry##*/} "*) continue ;; esac
         backup "$entry" "$label"
     done
 }
@@ -111,8 +151,7 @@ reconcile_dir() {
     for entry in "$dir"/*; do
         [ -L "$entry" ] || continue
         case "$(readlink "$entry")" in
-            "$REPO_DIR"/*|"$BUILD_DIR"/*)
-                [ "$DRY_RUN" = 1 ] || rm "$entry" ;;
+            "$REPO_DIR"/*|"$BUILD_DIR"/*) drop "$entry" ;;
         esac
     done
 }
@@ -205,6 +244,79 @@ gen_agent_codex() {
 toml_str()   { sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'; }
 toml_block() { sed -e 's/\\/\\\\/g' -e 's/"""/\\"\\"\\"/g'; }
 
+# ---------------------------------------------------------------- skills ----
+
+# The skills blocks, shared by the per-tool installs and `./install.sh skills`.
+
+link_skills() {  # link_skills <dir> — link every core/skills/<name> into dir
+    local d
+    for d in "$REPO_DIR"/core/skills/*/; do
+        [ -d "$d" ] || continue
+        link "${d%/}" "$1/$(basename "$d")"
+    done
+}
+
+# ~/.claude/skills is swept. synced/ holds the claude.ai skills and .trash/ is
+# where Claude Code parks them when syncing is turned off; both belong to
+# Claude Code, not this repo.
+skills_claude() {
+    mk "$1"
+    sweep_dir "$1" claude/skills "synced .trash"
+    link_skills "$1"
+}
+
+# ~/.codex/skills and ~/.cursor/skills are shared: tool-bundled and third-party
+# skills live there too. Reconcile, never sweep.
+skills_shared() {
+    mk "$1"
+    reconcile_dir "$1"
+    link_skills "$1"
+}
+
+# report_skills <dir>... — name every core skill a dir does not link to this
+# repo. A dry run counts the links it planned above as made.
+report_skills() {
+    local dir d n missing other clean=1
+    for dir in "$@"; do
+        missing=""; other=""
+        for d in "$REPO_DIR"/core/skills/*/; do
+            [ -d "$d" ] || continue
+            n=$(basename "$d")
+            if [ -L "$dir/$n" ] && [ "$(readlink "$dir/$n")" = "${d%/}" ]; then
+                continue
+            elif [ "$DRY_RUN" = 1 ] && printf '%s' "$LINKED" | grep -Fxq -- "$dir/$n"; then
+                continue
+            elif [ -e "$dir/$n" ] || [ -L "$dir/$n" ]; then
+                other+=" $n"
+            else
+                missing+=" $n"
+            fi
+        done
+        [ -z "$missing" ] || { warn "missing from $dir:$missing"; clean=0; }
+        [ -z "$other" ] || { warn "in $dir but not linked to this repo:$other"; clean=0; }
+    done
+    [ "$clean" = 0 ] || note "every core skill is linked from $*"
+}
+
+install_skills() {
+    local c="$HOME/.claude/skills" x="$HOME/.codex/skills" u="$HOME/.cursor/skills"
+    step "Skills -> $c, $x, $u"
+    skills_claude "$c"
+    skills_shared "$x"
+    skills_shared "$u"
+    report_skills "$c" "$x" "$u"
+}
+
+# Lint core/skills and compare them with the claude.ai copies. Both only report:
+# a skill that fails is still linked, because the linked copy is the one to fix.
+skill_checks() {
+    step "Skill checks"
+    "$REPO_DIR/scripts/check-skills.sh" --quiet 2>&1 | sed 's/^/    /' ||
+        warn "check-skills failed; run scripts/check-skills.sh for the full report"
+    "$REPO_DIR/scripts/skill-sync-status.sh" --quiet 2>&1 | sed 's/^/    /' ||
+        warn "the claude.ai copies differ; see \"Skills and claude.ai\" in README.md"
+}
+
 # ----------------------------------------------------------------- tools ----
 
 install_claude() {
@@ -231,14 +343,8 @@ install_claude() {
         link "$f" "$dir/agents/$(basename "$f")"
     done
 
-    # skills
-    mk "$dir/skills"
-    sweep_dir "$dir/skills" claude/skills
-    local d
-    for d in "$REPO_DIR"/core/skills/*/; do
-        [ -d "$d" ] || continue
-        link "${d%/}" "$dir/skills/$(basename "$d")"
-    done
+    # skills — swept, except Claude Code's own synced/ and .trash/
+    skills_claude "$dir/skills"
 
     # settings and keybindings are copies: Claude rewrites settings.json in
     # place (theme, model picker), and a symlink would push that into the repo.
@@ -275,13 +381,7 @@ install_codex() {
 
     # skills — shared directory, tool-bundled skills live here too. Reconcile,
     # never sweep.
-    mk "$dir/skills"
-    reconcile_dir "$dir/skills"
-    local d
-    for d in "$REPO_DIR"/core/skills/*/; do
-        [ -d "$d" ] || continue
-        link "${d%/}" "$dir/skills/$(basename "$d")"
-    done
+    skills_shared "$dir/skills"
 
     merge_codex_config "$dir/config.toml"
 }
@@ -356,8 +456,14 @@ codex_binary() {
 codex_capability_check() {
     local bin ver
     command -v codex >/dev/null 2>&1 || { note "codex not on PATH; installing files anyway"; return 0; }
-    ver=$(codex --version 2>/dev/null | head -1 || true)
-    note "detected ${ver:-codex (version unknown)}"
+    # Launching codex writes its per-run dir under ~/.codex/tmp, so a dry run
+    # skips the version and only greps the binary below.
+    if [ "$DRY_RUN" = 1 ]; then
+        note "dry run: not launching codex for its version"
+    else
+        ver=$(codex --version 2>/dev/null | head -1 || true)
+        note "detected ${ver:-codex (version unknown)}"
+    fi
 
     bin=$(codex_binary || true)
     if [ -z "$bin" ] || [ ! -f "$bin" ]; then
@@ -391,13 +497,7 @@ install_cursor() {
     done
 
     # skills — shared directory; reconcile, never sweep
-    mk "$dir/skills"
-    reconcile_dir "$dir/skills"
-    local d
-    for d in "$REPO_DIR"/core/skills/*/; do
-        [ -d "$d" ] || continue
-        link "${d%/}" "$dir/skills/$(basename "$d")"
-    done
+    skills_shared "$dir/skills"
 
     # Cursor keeps User Rules inside the app, with no file to install to. Best
     # available: generate the text and put it on the clipboard to paste once.
@@ -494,9 +594,9 @@ while [ $# -gt 0 ]; do
         -n|--dry-run) DRY_RUN=1 ;;
         --project) shift; [ $# -gt 0 ] || die "--project needs a path"; PROJECT_DIR="$1" ;;
         all) TOOLS=(claude codex cursor vscode) ;;
-        claude|codex|cursor|vscode) TOOLS+=("$1") ;;
+        claude|codex|cursor|vscode|skills) TOOLS+=("$1") ;;
         -*) die "unknown flag: $1 (try --help)" ;;
-        *) die "unknown tool: $1 (expected claude, codex, cursor, vscode, or all)" ;;
+        *) die "unknown tool: $1 (expected claude, codex, cursor, vscode, skills, or all)" ;;
     esac
     shift
 done
@@ -506,7 +606,7 @@ if [ ${#TOOLS[@]} -eq 0 ]; then
         if command -v "$t" >/dev/null 2>&1 || [ -d "$HOME/.$t" ]; then TOOLS+=("$t"); fi
     done
     if vscode_cli >/dev/null 2>&1 || [ -d "$HOME/.vscode" ]; then TOOLS+=(vscode); fi
-    [ ${#TOOLS[@]} -gt 0 ] || die "no supported tool detected; name one explicitly (claude|codex|cursor|vscode)"
+    [ ${#TOOLS[@]} -gt 0 ] || die "no supported tool detected; name one explicitly (claude|codex|cursor|vscode|skills)"
     note "detected: ${TOOLS[*]}"
 fi
 
@@ -530,13 +630,21 @@ if [ -n "$PROJECT_DIR" ]; then
     exit 0
 fi
 
-if [ -f "$REPO_DIR/.gitmodules" ] && [ "$DRY_RUN" = 0 ]; then
-    git -C "$REPO_DIR" submodule update --init --recursive
-fi
+# The only submodule is the Claude statusline.
+case " ${TOOLS[*]} " in
+    *" claude "*)
+        if [ -f "$REPO_DIR/.gitmodules" ] && [ "$DRY_RUN" = 0 ]; then
+            git -C "$REPO_DIR" submodule update --init --recursive
+        fi ;;
+esac
 
 for t in "${TOOLS[@]}"; do
     "install_$t"
 done
+
+case " ${TOOLS[*]} " in
+    *" claude "*|*" codex "*|*" cursor "*|*" skills "*) skill_checks ;;
+esac
 
 printf '\n%sDone.%s Restart the tools you installed into.\n' "$B" "$RST"
 [ -d "$BACKUP_ROOT" ] && say "backups: $BACKUP_ROOT"

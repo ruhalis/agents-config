@@ -13,6 +13,7 @@ cd ~/projects/agents-config
 ./install.sh codex               # one tool
 ./install.sh claude cursor       # several
 ./install.sh vscode              # install missing VS Code extensions
+./install.sh skills              # only the skills, into all three tools
 ./install.sh all                 # all four, detected or not
 ./install.sh --dry-run all       # print the plan, change nothing
 ./install.sh --project ~/repo cursor
@@ -31,6 +32,7 @@ adapters/
   codex/                 routing tail + managed config.toml keys + model map
   cursor/                routing tail
   vscode/                extensions.txt — extension IDs to install
+scripts/               check-skills.sh, package-skills.sh, skill-sync-status.sh
 build/                 generated, gitignored; installed files symlink here
 statusline/            submodule (Claude-only)
 ```
@@ -51,6 +53,25 @@ Everything that *can* be shared is shared. The three agents are authored once in
 | Statusline | `statusline/` (submodule) | — | — |
 
 Symlinked items track repo edits live. The two copies — `settings.json` and `keybindings.json` — are copies precisely because Claude Code rewrites `settings.json` in place when you change the theme or model, and a symlink would push those edits back into the repo. Re-run `install.sh` to update them.
+
+## Skills and claude.ai
+
+`core/skills/` is the only place skills are edited. The three installed skill directories hold symlinks to it, so an edit is live in every tool at once. After adding or renaming a skill, `./install.sh skills` relinks just the skills (no settings copy, no config merge) and names any skill still missing from `~/.claude/skills/`, `~/.codex/skills/` or `~/.cursor/skills/`.
+
+The claude.ai copies are separate. claude.ai, Cowork and cloud sessions use the skills uploaded to your claude.ai account; Claude Code downloads those into `~/.claude/skills/synced/` and never uploads, so a local edit does not reach them. After changing a skill, re-upload it:
+
+```bash
+scripts/check-skills.sh                # lint every skill; exit 1 on any FAIL
+scripts/package-skills.sh esp-idf      # -> build/skills/esp-idf.skill
+# upload build/skills/esp-idf.skill in claude.ai under Customize > Skills, in place of the old copy
+scripts/skill-sync-status.sh           # after the next sync: in-sync, drifted or not-on-claude.ai
+```
+
+Never edit files under `synced/`: the next sync replaces them and the repo never sees the change. If `skill-sync-status.sh --diff` shows a claude.ai-side edit worth keeping, make it in `core/skills/` and upload again.
+
+- `check-skills.sh` needs only bash and python3. It fails a skill whose frontmatter breaks the Agent Skills spec (a key outside `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools`; `name` not the directory name; `description` over 1024 characters; `compatibility` over 500; a non-string `metadata` value), a script that does not parse or whose `--help` breaks, a bundled path `SKILL.md` names that does not exist, or a missing version-pin file. It warns about `__pycache__` and `.DS_Store`. Last it checks every `~/.claude/skills/<name>/<path>` in the Markdown under `~/projects`, because other repos call the bundled scripts by those paths. The header of the script lists every rule.
+- `package-skills.sh` packages only skills that pass the check, with the root folder named after the skill and the same exclusions as skill-creator's packager (`__pycache__/`, `*.pyc`, `.DS_Store`, `evals/`). An unchanged skill packages to a byte-identical file.
+- `install.sh` runs `check-skills.sh` and `skill-sync-status.sh` after any install that links skills. Both only report.
 
 ## VS Code extensions
 
@@ -83,7 +104,7 @@ Cursor subagents and skills *are* file-based, so those install normally either w
 
 ## Codex versions
 
-The Codex feature surface moved quickly, and an older binary silently ignores files it doesn't understand. `install.sh` inspects the installed binary and warns if subagents or skills won't be picked up:
+The Codex feature surface moved quickly, and an older binary silently ignores files it doesn't understand. `install.sh` inspects the installed binary and warns if subagents or skills won't be picked up (a dry run skips `codex --version`, which would write under `~/.codex/tmp/`, and only greps the binary):
 
 ```
 ! this Codex build has no subagent support — ~/.codex/agents/*.toml will be ignored.
@@ -98,10 +119,12 @@ Anything pre-existing is backed up to `~/.agent-config-backups/<timestamp>/<tool
 
 Two different reconciliation policies, deliberately:
 
-- **Swept** — `~/.claude/agents/` and `~/.claude/skills/` are owned by this repo. Anything not from here is backed up and removed, so after install they mirror the repo exactly.
+- **Swept** — `~/.claude/agents/` and `~/.claude/skills/` are owned by this repo. Anything not from here is backed up and removed, so after install they mirror the repo exactly. The exceptions are `~/.claude/skills/synced/` (skills Claude Code downloads from claude.ai) and `~/.claude/skills/.trash/`, which belong to Claude Code and are left alone.
 - **Reconciled** — `~/.codex/skills/`, `~/.cursor/skills/`, and the agent directories are *shared*. Codex ships bundled skills in `~/.codex/skills/.system`, Cursor manages `~/.cursor/skills-cursor`, and other CLIs install alongside. Here `install.sh` only removes stale symlinks pointing back into this repo and leaves everything else alone.
 
-Sweeping a shared directory would silently delete skills this repo never owned. Don't change `reconcile_dir` to `sweep_dir` for those paths.
+Sweeping a shared directory would silently delete skills this repo never owned. Don't change `reconcile_dir` to `sweep_dir` for those paths. For the same reason a real file or directory sitting where a link should go, such as a skill Codex installed under the same name, is left alone with a warning: `ln -sfn` would overwrite the file or nest the link inside the directory.
+
+Each `link` line says `new`, `exists` (already that link) or `replace`, so `--dry-run` shows what a run would change.
 
 ## Agents & orchestration
 
