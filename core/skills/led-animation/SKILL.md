@@ -12,7 +12,7 @@ The shape this skill assumes, because it is the shape the tooling was built for:
 
 ## Fixed decisions
 
-- **The JS owns the numbers, the C mirrors them.** Design in the reference, then port; never tune only one file. The port is proven by two checks together: the changed rows and constants, read side by side, are equal in both files, and parity says `ok`. Parity alone is not proof: it bands per-sample differences at two instants of a fade-in from dark, so a small colour, brightness, fade-clock or dip change made in one file passes it. A change that fails either check is not done.
+- **The JS owns the numbers, the C mirrors them.** Design in the reference, then port; never tune only one file. The port is proven when parity says `ok`; in Athena that covers the rows and constants as written, each state faded in from dark and each switch from idle. A parity check that compares frames alone misses a small one-file change to a colour, a brightness or a clock; with one, read the changed rows side by side as well. A change that fails is not done.
 - **Preview through the driver.** Every sheet is rendered at the panel's bit depth with its dither, with the shader shape the board actually runs (copies, grid, layers), so what you see is what the LEDs will do, banding and blinking included. Never judge a look from a full-precision render.
 - **Every state derives from one base state, and a state change is a tween.** The base state (idle in Athena) is the picture; other states are its row with different numbers, and the picture on the panel eases from one row to the next with the animation phases integrated, never reset. A state that looks like it was designed separately is a defect; a hard cut is a defect.
 - **Colour fades on its own slower clock, in linear light, with a dip.** Hue jumps read as alarm. Only states that mean alarm change colour outright; the user's palette preference, when recorded in memory, wins over any of this.
@@ -30,52 +30,55 @@ Read the repo's `CLAUDE.md` section on the renderer and the host tooling's `READ
 Before changing anything, render the current state of things into `<scratchpad>/baseline` and keep it: the C sheets, the JS sheet and the parity output. In Athena:
 
 ```bash
-python3 firmware/athena_matrix/host/sheet.py all --out <scratchpad>/baseline
-node firmware/athena_matrix/host/sheet.mjs --out <scratchpad>/baseline/js-states.png
+python3 firmware/athena_matrix/host/sheet.py all --scale 2 --out <scratchpad>/baseline
+node firmware/athena_matrix/host/sheet.mjs --scale 2 --out <scratchpad>/baseline/js-states.png
 node firmware/athena_matrix/host/parity.mjs > <scratchpad>/baseline/parity.txt
 ```
 
-Every later render goes to a fresh `<scratchpad>/round-N` (N counts up from 1), never to `baseline/` or the tools' default `host/out/`, which each run overwrites (`sheet.py` also deletes its old frames). If parity already fails, say so first; do not build on a port that has drifted. Look at the baseline once so you know what "the same as before" means for the states you are not touching.
+Every later render goes to a fresh `<scratchpad>/round-N` (N counts up from 1), never to `baseline/` or the tools' default `host/out/`, which each run overwrites (`sheet.py` also deletes its old frames). If parity already fails, say so first; do not build on a port that has drifted. Read the printed summaries and `parity.txt` first, then look at the sheets once so you know what the states you are not touching look like.
 
 ### 2. Design in the reference
 
-Change the table row or the shader in the JS. Start from the base state's row and move numbers, not hue, unless the state means alarm. Keep every field's meaning as the file documents it; do not add a field without adding it, in the same change, to every place that lists fields (Athena: the `AURA` row and `AURA_FIELDS` in `aurora.js`; `aura_state_t`, `aura_params_t`, the `states[]` columns and the `init_tables()` copy in `aura.c`; `FIELDS` in `bench.template.html`; the header comments and README). The C mix is generic and needs no edit.
+Change the table row or the shader in the JS. Start from the base state's row and move numbers, not hue, unless the state means alarm. Keep every field's meaning as the file documents it; do not add a field without adding it, in the same change, to every place that lists fields (Athena: the `AURA` row and `AURA_FIELDS` in `aurora.js`; `aura_state_t`, `aura_params_t`, the `states[]` columns and the `init_tables()` copy in `aura.c`, which parity checks against each other; the header comments and README). The C mix is generic and needs no edit.
 
 ### 3. Look, with a cap
 
-Render the JS sheet (Athena: `node firmware/athena_matrix/host/sheet.mjs --out <scratchpad>/round-N/js-states.png`) and read the PNG. Judge each state at the instants the sheet samples and against the base state beside it. The JS sheet renders each state settled, with no tween; for a tween, fade, dip or shader change, build the bench locally (Athena: `python3 firmware/athena_matrix/host/bench/make_bench.py --out <scratchpad>/bench.html`, not published) and watch the switch in Chrome before porting; for a tween or fade duration change, set the page's tween and fade sliders to the new values first, since it does not read `AURA_TWEEN_S` or `AURA_FADE_S`. Iterate on the numbers, but after **three rounds** without the user, stop and put the sheet in front of them (send the file) with one sentence on what you changed and what you are unsure of. Taste rounds are theirs; the tooling makes a round cheap, not unnecessary.
+Render the JS sheet (Athena: `node firmware/athena_matrix/host/sheet.mjs --scale 2 --out <scratchpad>/round-N/js-states.png`) and read the PNG. Judge each state at the instants the sheet samples and against the base state beside it. The JS sheet renders each state settled, with no tween; for a tween, fade, dip or shader change, build the bench locally (Athena: `python3 firmware/athena_matrix/host/bench/make_bench.py --out <scratchpad>/bench.html`, not published) and watch the switch in Chrome before porting. Iterate on the numbers, but after **three rounds** without the user, stop and put the sheet in front of them (send the file) with one sentence on what you changed and what you are unsure of. Taste rounds are theirs; the tooling makes a round cheap, not unnecessary.
 
 ### 4. Port to C, field for field
 
-Mirror the change in the C table or code. Same numbers, same order, same units as the row holds (in Athena, colour as sRGB hex bytes in `AURA_COL` and the C row's `col[]`, haze as a 0..1 weight; linear RGB and the haze levels are derived by `auraParams()` and `init_tables()` and never typed in). If the change touched the shader or the tween, the C's comments name the JS function each block mirrors; keep them true. If `AURA_RES`, `AURA_COPIES` or `AURA_LAYERS` change, update `sheet.mjs`'s defaults and the bench's shape lines in the same change; only `parity.mjs` reads them from `aura.c`.
+Mirror the change in the C table or code. Same numbers, same order, same units as the row holds (in Athena, colour as sRGB hex bytes in `AURA_COL` and the C row's `col[]`, haze as a 0..1 weight; linear RGB and the haze levels are derived by `auraParams()` and `init_tables()` and never typed in). If the change touched the shader or the tween, the C's comments name the JS function each block mirrors; keep them true.
 
-### 5. Rows, sheets and parity from the C
+### 5. Sheets, parity and the untouched states
 
-Print the changed rows and constants from both files and compare every number (Athena: the `AURA` and `AURA_COL` rows and the `AURA_*` constants in `aurora.js` against `states[]` and the `#define`s in `aura.c`):
-
-```bash
-sed -n '/var AURA_COL = {/,/AURA_WRAP_S = /p' firmware/athena_matrix/reference/aurora.js
-sed -n '/#define AURA_BLUR/,/#define TIME_WRAP_S/p;/aura_state_t states\[/,/^};/p' firmware/athena_matrix/main/aura.c
-```
-
-Then write the C sheets (states, fades, session) and the parity output into this round's directory, and read the summary, the PNGs and `parity.txt`:
+Write the C sheets (states, fades, session) and the parity output into this round's directory:
 
 ```bash
-python3 firmware/athena_matrix/host/sheet.py all --out <scratchpad>/round-N
+python3 firmware/athena_matrix/host/sheet.py all --scale 2 --out <scratchpad>/round-N
 node firmware/athena_matrix/host/parity.mjs > <scratchpad>/round-N/parity.txt
 ```
 
-Require `parity: ok`, and divide the two means in each state's last column (`mean level (js / c)`) and compare that ratio with the same sample in `baseline/parity.txt` from step 1: on a sample where both means are 0.3 or more, a shift of more than about 1 % points to a one-file change. Below 0.3 (sleep at 0.475 reads under 0.1) the printed means are too coarse for that. No shift proves nothing either: a small one-file speed change can pass parity and move no ratio, so the row compare decides. A `CUT` in the summary or an `OUT OF BAND` state in parity is a defect to fix before anything else, not a note for the report. When parity fails, compare the rows and constants again first: a one-file speed change can fail with the mean almost unchanged and a rate or freq change can move it 5 % or more, so the mean does not say which. Suspect the tween or phase code only when they match. `node firmware/athena_matrix/host/parity.mjs --states <s> --verbose` isolates one state and prints the worst pixel.
+Read the printed summary and `parity.txt` before any PNG, and require `parity: ok`. A `CUT` in the summary, or a `table:` difference or an `OUT OF BAND` line in parity, is a defect to fix before anything else, not a note for the report. When the table is equal and frames still fail, suspect the tween, fade or phase code (a `dip` flag points at the fade); `node firmware/athena_matrix/host/parity.mjs --states <s> --verbose` isolates one state and prints the worst pixel. Parity also switches from idle into every other state; when the change is to a switch out of another state, run it again with `--from <state>` (e.g. `--from error --states idle`).
 
-Parity only fades each state in from dark. It never runs a tween between two states, the colour fade or the dip, so it cannot check them. For those changes, rely on the row and constant compare above, compare `fades` with the baseline's, and render a transition strip for each changed switch, each into its own dir because `sheet.py` always writes `custom.png`, e.g. `python3 firmware/athena_matrix/host/sheet.py idle:2 <state>:2 --every 8 --out <scratchpad>/round-N/strip-<state>`.
+Then prove the states you did not touch did not move. `sheet.py` writes byte-identical frames from run to run, so compare this round's with the baseline's (the loop runs in zsh and bash):
+
+```bash
+for f in <scratchpad>/baseline/ppm/*/*.ppm; do
+  cmp -s "$f" "<scratchpad>/round-N/ppm/${f#*/baseline/ppm/}" || echo "changed ${f#*/baseline/ppm/}"
+done
+```
+
+Each line names `<scenario>/f<frame>_<state>.ppm`, 40 frames a second; a segment's first frame is its lowest-numbered file. A changed frame must belong to a state you changed, or fall in the tween out of one: the first 0.8 s (`AURA_TWEEN_S`) of the segment right after it, or its first 2 s (`AURA_FADE_S`) when the change touched a colour. A change to a state's `speed` or `rate` shifts the phases every later segment inherits, so then only the segments before its first appearance must match. Any other changed frame, above all an idle one, means you moved a state you did not mean to.
+
+To judge a look, open sheets under about 2000 px on the long side (a larger PNG is downscaled on read, which blurs the dither): the `--scale 2` sheets above, or a focused sequence for one state such as `python3 firmware/athena_matrix/host/sheet.py idle:1 think:3 idle:1 --every 20 --out <scratchpad>/round-N/focus-think`. For each changed switch, render a transition strip and look at it, each into its own dir because `sheet.py` always writes `custom.png`: `python3 firmware/athena_matrix/host/sheet.py idle:2 <state>:2 --every 8 --scale 2 --out <scratchpad>/round-N/strip-<state>`.
 
 ### 6. Build, then flash on an ask
 
-`idf.py build` for the target the project is set to, through the esp-idf skill (it sources the environment, checks the toolchain, finds the board). Build the other target only when the change touches per-target code. Flash only when the user asked for a flash in the current message, and only as the esp-idf skill's flash rule allows (it governs, and resolves the port); a request to build, fix or debug does not include flashing. Otherwise say the build is ready and stop there. After a flash, watch the boot log for the renderer's draw-time line and report it: the board has a frame budget and a shader change can blow it.
+`idf.py build` for the target the project is set to, through the esp-idf skill (it sources the environment, checks the toolchain, finds the board). Build the other target only when the change touches per-target code. Flash only when the user asked for a flash in the current message, and only as the esp-idf skill's flash rule allows (it governs, and resolves the port); a request to build, fix or debug does not include flashing. Otherwise say the build is ready and stop there. After a flash, watch the log for the renderer's draw-time line and report its average and maximum against the frame budget, the project's frame period; a shader change can blow it. In Athena the budget is `FRAME_MS` in `main/face.c`, 25 ms (40 fps), and the `aura: draw … us avg, … us max` line repeats every `AURA_LOG_US` (5 s), so it first appears 5 s after the first aura frame, which comes only once a state is set (the board boots into the wiring test).
 
 ### 7. Bench: rebuild and republish in place
 
-Build the page from the template (in Athena, `python3 firmware/athena_matrix/host/bench/make_bench.py --out <scratchpad>/bench.html`), then `Artifact read` the existing bench URL and publish to it with `url` set, keeping its icon and title. Open it in Chrome once and screenshot: the panel animates, the state buttons switch with a tween, the board/LiveKit toggle changes the picture. The template keeps hand-copied values that `make_bench.py` does not derive and its `--check` does not test (it only checks the inlined JS). In Athena these are the `LOOK` prose per state, the `tweenS`/`fadeS` defaults and the tween and fade sliders' values, and the `iters`/`grid`/`layers` defaults, the shape prose and the board button label. Update every one the change touched; grep the template for the old number.
+Build the page from the template (in Athena, `python3 firmware/athena_matrix/host/bench/make_bench.py --out <scratchpad>/bench.html`), then `Artifact read` the existing bench URL and publish to it with `url` set, keeping its icon and title. Open it in Chrome once and screenshot: the panel animates, the state buttons switch with a tween, the board/LiveKit toggle changes the picture. In Athena the page takes its numbers from the inlined `aurora.js`, `aura.c` and `face.c`; only the `LOOK` prose per state, the ttl labels and the session script are copied by hand, so update the prose when a state's character changes.
 
 ### 8. Docs and memory
 
