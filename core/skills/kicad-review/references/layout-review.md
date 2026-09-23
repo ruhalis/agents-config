@@ -1,10 +1,11 @@
 # Layout-stage checklist (procedure step 6)
 
-Evidence: `stats` = `kicad-cli pcb export stats --format json`, `pdf` = per-layer PDF export you have looked at,
-`layers` = the `(layers ...)` block of the `.kicad_pcb` read as text, `drc` = the step-5 `erc_drc.sh drc` result
-(`drc.json` and `drc_refilled.json`), `ds` = fetched datasheet, `note` = the design note. Same report format as the
-schematic stage. Layout judgement (placement, routing quality) is the user's; this list is what a reviewer can
-verify from exports.
+Evidence: `stats` = `review/stats.json`, `pdf` = the step-6 `export_review.sh pcb` PDFs (front, mirrored back, one
+per inner copper layer) read through their 200-dpi crops in `review/png/`, cited by crop name, `render` = the
+top/bottom 3D renders, `layers` = the `(layers ...)` block of the `.kicad_pcb` read as text, `drc` = the step-5
+`erc_drc.sh drc` result (`drc.json` and `drc_refilled.json`), `ds` = fetched datasheet, `note` = the design note.
+Same report format as the schematic stage. Layout judgement (placement, routing quality) is the user's; this list is
+what a reviewer can verify from exports.
 
 ## A. Board and stackup
 
@@ -19,10 +20,10 @@ verify from exports.
 
 | # | Check | Closes with |
 |---|---|---|
-| B1 | Every decoupling cap on the same side as its IC, within a few mm of the pin, via to ground plane next to it | pdf |
+| B1 | Every decoupling cap on the same side as its IC, within a few mm of the pin, via to ground plane next to it | pdf, render |
 | B2 | Regulators: input cap, output cap, and inductor (buck) in the loop the datasheet draws; thermal copper as required | pdf, ds |
 | B3 | RF module: antenna at the board edge with the datasheet keepout clear on all layers; nothing tall next to it | pdf, `esp32-s3-rules.md` |
-| B4 | Connectors at edges, oriented so cables can be plugged; pin 1 and polarity on silkscreen | pdf |
+| B4 | Connectors at edges, oriented so cables can be plugged; pin 1 and polarity on silkscreen | pdf, render |
 | B5 | Crystals and high-speed parts close to their IC; no signal routed under a crystal | pdf |
 | B6 | Domain placement stated in the note and met: IMU at the vehicle's centre of rotation, away from ESC current paths, with soft-mount holes; mics with the port hole through the PCB per the mic datasheet; class-D amp away from mic inputs | pdf, note, ds |
 

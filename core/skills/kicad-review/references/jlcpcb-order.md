@@ -42,6 +42,7 @@ stock are live data: look them up on jlcpcb.com/parts at order time, never from 
 | `gerbers.zip` | the `gerber/` directory | this is what gets uploaded |
 | `bom.csv` | `Comment, Designator, Footprint, LCSC Part #, Quantity, MPN`, grouped by value+footprint+LCSC, DNP excluded | designators comma-listed, never ranges (the script fails on a range); no row without an LCSC number unless it is hand-soldered and the note says so |
 | `cpl.csv` | `Designator, Val, Package, Mid X, Mid Y, Rotation, Layer` (Top/Bottom), mm, DNP excluded | every BOM designator with an LCSC number has a row (the script fails on a BOM part with an LCSC number and no row, and prints both differences); CPL-only rows (fiducials, logos: excluded from the BOM) are listed and each explained; rows with an LCSC number in the BOM are the assembled parts, the script lists the other BOM parts as hand-soldered |
+| `MANIFEST.txt` | sha256 of the board, sheets, `.kicad_pro`, `.kicad_dru` and the three uploads; kicad-cli version; git revision and dirty flag; copper layers; drill tools with hole and slot counts; ERC/DRC/pin-diff counts from `review/` | `fab checks: pass`; the board sha256 is the board the user means to order (it changes with every save); no `STALE` or `not run` gate; handed over with the zip, not uploaded |
 
 Rotation caveat: JLC's zero-rotation convention differs from KiCad's for many footprints (diodes, SOT-23,
 QFN, connectors). The CPL is a starting point; the user checks every polarised and asymmetric part in JLC's
@@ -65,6 +66,7 @@ KiCad 10 guide), and kicad-happy's `jlcpcb` skill, read-only.
 | Delivery country offers PCBA (checked on quote page today) | user, quote page |
 | Every polarised part's rotation to be checked in the JLC preview | user |
 | Quantity, surface finish, thickness, colour, and whether to include the assembled side both ways decided by the user | user |
+| `MANIFEST.txt` names this board: `fab checks: pass`, git clean or the dirty files accepted, review counts neither `STALE` nor `not run`; a re-export for the same order compared with `fab_diff.sh` (SKILL.md step 9) and every difference intended | `MANIFEST.txt`, `fab_diff.sh` output |
 
 Then the user uploads `gerbers.zip`, then `bom.csv` and `cpl.csv` in the assembly step. The skill never uploads,
 logs in, or drives the site.

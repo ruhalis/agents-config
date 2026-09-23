@@ -19,7 +19,7 @@ if [[ -x "${CLI}" ]]; then
   if [[ "${have}" == "${PIN}" ]]; then
     echo "kicad-cli:   ${have} at ${CLI}"
   elif [[ "${have%%.*}" == "${PIN%%.*}" ]]; then
-    echo "kicad-cli:   ${have} at ${CLI} — WARNING: differs from pin ${PIN} (bump kicad-version deliberately, then re-run the scripts on a known project)"
+    echo "kicad-cli:   ${have} at ${CLI} — WARNING: differs from pin ${PIN} (run scripts/selftest.sh now; bump kicad-version only deliberately, after the known-project re-run in SKILL.md step 0)"
   else
     echo "kicad-cli:   ${have} at ${CLI} — FAIL: major differs from pin ${PIN}; the JSON and netlist shapes the scripts parse are per-major"
     status=1
@@ -38,6 +38,15 @@ if command -v python3 >/dev/null 2>&1; then
 else
   echo "python3:     MISSING — the bundled scripts need a system python3 >= 3.10"
   status=1
+fi
+
+# Informational only: pdftoppm (Homebrew poppler) turns the review PDFs into PNG crops in export_review.sh.
+ppm="${PDFTOPPM:-/opt/homebrew/bin/pdftoppm}"
+[[ -x "${ppm}" ]] || ppm="$(command -v pdftoppm 2>/dev/null || true)"
+if [[ -n "${ppm}" ]]; then
+  echo "pdftoppm:    ${ppm} (review PNG crops)"
+else
+  echo "pdftoppm:    not found (review PNG crops skipped, PDFs only; Homebrew poppler, never installed unasked)"
 fi
 
 # Informational only: the IPC API server (KiCad > Preferences > Plugins). This skill never uses it.

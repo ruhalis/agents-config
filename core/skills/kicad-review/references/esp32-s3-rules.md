@@ -5,6 +5,10 @@ Verified 2026-09-07 against the ESP32-S3-WROOM-1/1U datasheet v1.8
 ESP32-S3 Hardware Design Guidelines, schematic checklist and PCB layout pages
 (https://docs.espressif.com/projects/esp-hardware-design-guidelines/en/latest/esp32s3/schematic-checklist.html,
 https://docs.espressif.com/projects/esp-hardware-design-guidelines/en/latest/esp32s3/pcb-layout-design.html, "HDG").
+The UART0, GPIO0-capacitor, ambient-temperature and ADC2 rows were re-read 2026-09-23 against HDG v1.8 (latest
+revision, 2025-07-03), DS v1.8, the ESP32-S3 Series Datasheet v2.2
+(https://documentation.espressif.com/esp32-s3_datasheet_en.pdf, "Series DS") and ESP-IDF's ADC oneshot page
+(https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/api-reference/peripherals/adc/adc_oneshot.html).
 Re-fetch the page and cite the section when a finding depends on a number here. Anything marked `unverified` was
 not read from the source and must be checked before it becomes a finding.
 
@@ -24,14 +28,15 @@ not read from the source and must be checked before it becomes a finding.
 | 47, 48 | | | On R16V modules VDD_SPI is 1.8 V and GPIO47/48 run at 1.8 V, not 3.3 V | DS footnote on N16R16VA / R16V |
 | 39–42 | JTAG MTCK/MTDO/MTDI/MTMS | | Usable as GPIO: JTAG defaults to USB-Serial-JTAG; pads 39–42 carry JTAG only if eFuses are burned | DS Table 4-5 |
 | 1–10 | ADC1 | | Use ADC1 for analog inputs | DS pin table |
-| 11–20 | ADC2 | | ADC2 is shared with Wi-Fi; treat as unusable for analog while Wi-Fi is on | DS pin table / HDG |
+| 11–20 | ADC2 | | ADC2 channels cannot be used while Wi-Fi is on: analog inputs go on ADC1. ESP-IDF's oneshot driver arbitrates ADC2 with the Wi-Fi driver and may return `ESP_ERR_TIMEOUT`, so a board that samples during Wi-Fi needs ADC1 | Series DS v2.2 §4.2.2.1 SAR ADC, Note; ESP-IDF ADC oneshot, Hardware Limitations |
 | 0–21 | RTC GPIO | | Only these can wake from deep sleep | DS pin table |
 
 Strapping pins are latched at reset and must hold their level for the setup/hold window: tSU ≥ 0 ms, tH ≥ 3 ms after
 EN rises (DS v1.8 Table 4-2).
 
 Module variants: the Value field of the symbol must name the exact ordering code (e.g. `ESP32-S3-WROOM-1-N16R8`).
-The N/R suffix decides whether IO35–37 exist and whether GPIO47/48 are 1.8 V. A schematic that uses IO35–37 on an
+The N/R suffix decides whether IO35–37 exist, whether GPIO47/48 are 1.8 V, and the ambient rating (65 °C for R8
+and R16V, see Layout). A schematic that uses IO35–37 on an
 R8 module is an error, not a warning.
 
 Peripheral counts: 3 × UART (DS v1.8 §5.2.1.1), 2 × I2C (§5.2.1.2), 2 × I2S (§5.2.1.3), SPI2 and SPI3
@@ -46,6 +51,8 @@ general-purpose (§5.2), 1 × TWAI (§5.2.1.6), USB 2.0 OTG full-speed (§5.2.1.
 | 3V3 decoupling | 10 µF at the module's 3V3 entry plus 0.1 µF close to the pin; HDG also lists caps on VDD_SPI and per RF pin, read the checklist for the exact set | HDG schematic checklist |
 | EN | 10 kΩ pull-up to 3V3 and 1 µF to GND (RC delay so the strapping pins are stable before EN); never leave EN floating | HDG schematic checklist |
 | Boot/reset buttons | Reset: EN to GND. Boot: GPIO0 to GND. Both momentary, both optional on a fully USB-programmed board | HDG |
+| GPIO0 capacitance | No high-value capacitor on GPIO0 (e.g. a debounce cap on the BOOT button): the chip may enter download mode. The HDG gives no threshold, so any capacitor on GPIO0 is a question for the user. The same note recommends a pull-up on GPIO0 | HDG Schematic Checklist > Strapping Pins, Attention |
+| UART0 TX | 499 Ω series resistor on U0TXD (GPIO43) to suppress harmonics; nothing is specified for U0RXD. For application traffic the HDG prefers a UART other than UART0, with a series resistor (no value given) on its TX | HDG Schematic Checklist > UART |
 | Auto-program | Two-transistor DTR/RTS circuit on EN and GPIO0 when a UART bridge is used (DevKitC-1 schematic); with native USB-Serial-JTAG no bridge is needed | https://dl.espressif.com/dl/schematics/SCH_ESP32-S3-DevKitC-1_V1.1_20221130.pdf (transistor part numbers `unverified`) |
 | Brown-out | Module has an internal brown-out detector; the 3V3 rail must not sag below its threshold on Wi-Fi bursts, so size the regulator and the bulk cap for the 355 mA step | DS / HDG |
 
@@ -59,6 +66,7 @@ general-purpose (§5.2), 1 × TWAI (§5.2.1.6), USB 2.0 OTG full-speed (§5.2.1.
 | Ground | Solid ground under the module except the antenna area; EPAD (pin 41) tied to GND with a via array (≥ 9 vias is the HDG's figure for the chip's own ground pad, a heuristic here) | HDG |
 | Power traces | Main power trace ≥ 25 mil on a 4-layer board per HDG | HDG |
 | USB | D+/D- as a 90 Ω differential pair, short, no stubs | HDG |
+| Ambient temperature | R8 and R16V modules (N4R8, N8R8, N16R8, N16R16VA) are rated –40 to 65 °C ambient; with the PSRAM ECC function enabled, 85 °C, and usable PSRAM drops by 1/16. Other WROOM-1/1U variants –40 to 85 °C, H4 –40 to 105 °C. A module beside ESCs, a regulator or motor leads: the note states the ambient it expects and whether PSRAM ECC is on | DS v1.8 §1.2 Series Comparison (text above Table 1-1; Tables 1-1, 1-2), Table 6-2 |
 
 ## Things a reviewer says out loud
 
@@ -66,4 +74,6 @@ general-purpose (§5.2), 1 × TWAI (§5.2.1.6), USB 2.0 OTG full-speed (§5.2.1.
 - Every strapping pin: what is connected, and what its level is at reset.
 - Whether UART0 is the console, USB-Serial-JTAG is the console, or both, and how the board is programmed the first time.
 - The 3V3 regulator part, its rated current, and the bulk cap after it.
+- The module's ambient rating against where it sits (next to ESCs or a regulator), and whether PSRAM ECC is on.
+- Whether U0TXD has its series resistor and GPIO0 carries any capacitor.
 - Where the antenna is and what copper is under it.
