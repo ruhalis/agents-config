@@ -60,6 +60,19 @@ Links.
 
 Keep the whole thing under ~1,200 words. Prose inside sections, no nested bullets. ASCII diagrams only if they show a real mechanism (pipeline, data flow).
 
+## Check before saving
+
+Before writing the file, check the draft against the template (peer review: against the skeleton in Peer-review mode):
+- Headings present, in order: Question, Bottom line, Candidates, Key evidence, Gaps and risks, Next experiment, Sources — or, in peer-review mode, Summary, Strengths, Weaknesses, Questions for authors, Minor issues, Recommendation.
+- Brief mode only: Bottom line names exactly one pick and one risk.
+- Brief mode only: every Candidates cell is filled or marked "unknown".
+- Brief mode only: every Key evidence line has a number, a URL, and a provenance tag ([real|sim], embodiment, N trials, model version; device and precision for inference numbers; or "(unverified)" if the primary source wasn't opened).
+- Brief mode only: Next experiment names dataset/env, metric, success threshold, and the GPU it runs on (or the machine, e.g. H200 overnight).
+- Under ~1,200 words (peer review has no fixed length target — stay concise).
+- No nested bullets — prose inside sections, as the template uses; peer review follows the skeleton's own structure.
+
+Fix anything that fails, then re-check before saving.
+
 ## Saving
 
 Vault = `/Users/ruhalis/obsidian/ruhalis` (a plain folder, so no connector is needed). Save to the folder named by `newFileFolderPath` in its `.obsidian/app.json` (currently "0. Files/6. Inbox") unless the user names another folder, if that folder exists and is writable (`test -w`). Filename: "<Topic> brief YYYY-MM-DD.md", with none of / \ : # ^ | [ ] % * ? " < >. Never overwrite an existing note; append " 2". If the vault or folder is missing or not writable (other machine, Codex sandbox, claude.ai), save to `docs/briefs/` in the current repo or return the brief inline, and name the vault folder it belongs in. Always report the path.
