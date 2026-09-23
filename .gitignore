@@ -2,3 +2,6 @@
 *.bak
 build/
 __pycache__/
+
+# claude.ai-side skill archives dropped here by hand
+Claude outputs/

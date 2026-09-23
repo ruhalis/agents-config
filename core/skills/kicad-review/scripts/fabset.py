@@ -176,29 +176,48 @@ def sha256(path):
 
 # ---------------------------------------------------------------- manifest
 def git_state(board_dir, files):
-    def git(*args):
+    """The board's git revision, and DIRTY with the files when any of `files` (the board and every sheet it
+    references, wherever they sit) is modified or untracked. Paths go to git relative to the work-tree root, so a
+    sheet in a subdirectory or a sibling directory of the board counts too; they print as the board directory
+    sees them (`sub/child.kicad_sch`, `../common/pwr.kicad_sch`). A sheet outside the work tree is named, not
+    judged."""
+    def git(cwd, *args):
         try:
-            r = subprocess.run(["git", "-C", board_dir, "--no-optional-locks"] + list(args),
+            r = subprocess.run(["git", "-C", cwd, "--no-optional-locks"] + list(args),
                                capture_output=True, text=True)
         except OSError:
             return None, ""
         return r.returncode, r.stdout.rstrip("\n")  # porcelain lines start with a meaningful space
-    rc, top = git("rev-parse", "--show-toplevel")
+    rc, top = git(board_dir, "rev-parse", "--show-toplevel")
     if rc is None:
         return "git not found"
     if rc != 0:
         return "not a git work tree"
-    names = [os.path.basename(f) for f in files]
-    tracked = [n for n in names if git("ls-files", "--error-unmatch", "--", n)[0] == 0]
+    # git resolves symlinks in --show-toplevel (/tmp is /private/tmp on macOS); resolve the files the same way.
+    inside, outside = {}, []
+    for f in files:
+        p = os.path.relpath(os.path.realpath(f), top)
+        name = os.path.relpath(f, board_dir)
+        if p == os.pardir or p.startswith(os.pardir + os.sep):
+            outside.append(name)
+        else:
+            inside[p] = name
+    note = "; outside this work tree: %s" % ", ".join(outside) if outside else ""
+    tracked = [p for p in inside if git(top, "ls-files", "--error-unmatch", "--", p)[0] == 0]
     if not tracked:
-        return "not tracked (repo %s does not track %s)" % (top, names[0])
-    _, rev = git("rev-parse", "--short=12", "HEAD")
-    _, st = git("status", "--porcelain", "--", *names)
-    dirty = [os.path.basename(ln[3:]) + (" (untracked)" if ln.startswith("??") else " (modified)")
-             for ln in st.splitlines() if len(ln) > 3]
+        first = next(iter(inside.values()), outside[0] if outside else "the board")
+        return "not tracked (repo %s does not track %s)%s" % (top, first, note)
+    _, rev = git(top, "rev-parse", "--short=12", "HEAD")
+    _, st = git(top, "status", "--porcelain", "--untracked-files=all", "--", *inside)
+    dirty = []
+    for ln in st.splitlines():
+        if len(ln) <= 3:
+            continue
+        p = ln[3:].split(" -> ")[-1].strip('"')  # work-tree relative; a rename prints old -> new
+        dirty.append(inside.get(p, p) + (" (untracked)" if ln.startswith("??") else " (modified)"))
     if dirty:
-        return "%s DIRTY: %s; this set is from the working copy, not %s" % (rev, ", ".join(dirty), rev)
-    return "%s clean" % rev
+        return "%s DIRTY: %s; this set is from the working copy, not %s%s" % (rev, ", ".join(dirty), rev, note)
+    return "%s clean%s" % (rev, note)
 
 
 def review_counts(review, sheets, pcb, settings):

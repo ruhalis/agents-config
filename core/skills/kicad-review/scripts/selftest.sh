@@ -13,7 +13,8 @@
 # Asserts: pin_diff.py exit codes (0 clean, 2 error rows, 1 misuse) and its OK/CAUTION/HEADER-ONLY/RESERVED/
 # NAME-MISMATCH/DUPLICATE rows, on KiCad 10 and pre-10 (no _<pad>) pin names; fabset.py check, the file-set and
 # BOM/CPL designator-set check fab_export.sh runs, on a good set and broken ones; fabset.py manifest on stand-in
-# files (sheets referenced from the root, a missing one, a G85 slot, a pin diff older than board.net); fab_diff.sh
+# files (sheets referenced from the root, a missing one, a G85 slot, a pin diff older than board.net, the git line
+# clean and then DIRTY with sheets modified in a sub- and a sibling directory); fab_diff.sh
 # on a re-stamped set and a changed one; no __pycache__ left in the skill.
 # Runs python with PYTHONDONTWRITEBYTECODE=1.
 # Exit 0: every assertion passed. 1: at least one failed (each printed as FAIL with its output).
@@ -176,8 +177,9 @@ expect 1 "misuse: one argument" bash "${DIFF}" "${T}/good"
 
 echo "== fabset.py manifest (sheet tree, slots, STALE review counts)"
 # Stand-in text files, not KiCad designs: only the Sheetfile properties, the drill file and the mtimes matter here.
-P="${T}/proj"; mkdir -p "${P}/sub" "${P}/review" "${T}/mf/gerber"
-printf '(kicad_sch\n  (sheet (property "Sheetfile" "sub/child.kicad_sch"))\n  (sheet (property "Sheet file" "gone.kicad_sch"))\n)\n' > "${P}/b.kicad_sch"
+R="${T}/repo"; P="${R}/hardware/b"; mkdir -p "${P}/sub" "${P}/review" "${R}/hardware/common" "${T}/mf/gerber"
+printf '(kicad_sch\n  (sheet (property "Sheetfile" "sub/child.kicad_sch"))\n  (sheet (property "Sheet file" "gone.kicad_sch"))\n  (sheet (property "Sheetfile" "../common/pwr.kicad_sch"))\n)\n' > "${P}/b.kicad_sch"
+printf '(kicad_sch)\n' > "${R}/hardware/common/pwr.kicad_sch"
 printf '(kicad_sch\n  (sheet (property "Sheetfile" "grandchild.kicad_sch"))\n)\n' > "${P}/sub/child.kicad_sch"
 printf '(kicad_sch)\n' > "${P}/sub/grandchild.kicad_sch"
 printf '(kicad_sch)\n' > "${P}/unrelated.kicad_sch"
@@ -186,7 +188,12 @@ printf 'M48\n; DRILL file KiCad 10.0.5 date 2026-09-23T12:00:00\nMETRIC\n; #@! T
 printf '{"sheets":[{"path":"/","violations":[{"severity":"warning","type":"pin_to_pin"}]}]}\n' > "${P}/review/erc.json"
 printf 'errors=0 warnings=1 info=2  (header pins: 1, U1 GPIO pins in netlist: 3)\n' > "${P}/review/pin_diff.txt"
 printf '(export)\n' > "${P}/review/board.net"
-touch -t 202609220900 "${P}/b.kicad_sch" "${P}/sub/child.kicad_sch" "${P}/sub/grandchild.kicad_sch" "${P}/b.kicad_pcb"
+touch -t 202609220900 "${P}/b.kicad_sch" "${P}/sub/child.kicad_sch" "${P}/sub/grandchild.kicad_sch" "${P}/b.kicad_pcb" \
+  "${R}/hardware/common/pwr.kicad_sch"
+# A git repo around it, so the manifest's git line is exercised: no hooks, no signing, no user config needed.
+g() { git -c user.name=selftest -c user.email=selftest@example.invalid -c commit.gpgsign=false -c core.hooksPath="${T}/nohooks" -C "${R}" "$@"; }
+have_git=0
+if command -v git >/dev/null 2>&1 && g init -q && g add -A && g commit -q -m "board" 2>/dev/null; then have_git=1; else echo "skip  git repo (git missing or cannot commit): git-line checks skipped"; fi
 touch -t 202609221000 "${P}/review/erc.json" "${P}/review/pin_diff.txt"
 touch -t 202609221100 "${P}/review/board.net"
 expect 0 "manifest" python3 "${FAB}" manifest "${T}/mf" --pcb "${P}/b.kicad_pcb" --sch "${P}/b.kicad_sch" \
@@ -201,6 +208,16 @@ has   "ERC current"                        '^  erc: +warning=1  \(erc\.json, [0-
 has   "pin diff STALE against board.net"   '^  pin_diff: +errors=0 warnings=1 info=2  \(pin_diff\.txt, [0-9T:-]+, STALE: older than review/board\.net\)$'
 has   "DRC not run"                        '^  drc: +not run '
 if [[ -f "${T}/mf/MANIFEST.txt" ]]; then ok "MANIFEST.txt written"; else bad "MANIFEST.txt not written"; fi
+if [[ "${have_git}" -eq 1 ]]; then
+  has "git line clean"                     '^git: +[0-9a-f]{12,} clean$'
+  echo "; edited" >> "${P}/sub/child.kicad_sch"; echo "; edited" >> "${R}/hardware/common/pwr.kicad_sch"
+  touch -t 202609220900 "${P}/sub/child.kicad_sch" "${R}/hardware/common/pwr.kicad_sch"   # keep the review counts current
+  expect 0 "manifest on a dirty tree" python3 "${FAB}" manifest "${T}/mf" --pcb "${P}/b.kicad_pcb" --sch "${P}/b.kicad_sch" \
+    --kicad 10.0.5 --copper F.Cu,B.Cu --checks pass
+  has "sub-sheet in a subdirectory seen"   '^git: +[0-9a-f]{12,} DIRTY: .*sub/child\.kicad_sch \(modified\)'
+  has "sheet in a sibling directory seen"  '^git: +[0-9a-f]{12,} DIRTY: .*\.\./common/pwr\.kicad_sch \(modified\)'
+  lacks "root sheet not reported"          'DIRTY: .*[ ,]b\.kicad_sch'
+fi
 
 echo "== bytecode"
 out="$(find "${SKILL_DIR}" -name __pycache__ -o -name '*.pyc')"

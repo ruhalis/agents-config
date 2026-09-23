@@ -114,7 +114,7 @@ print("2000 %d" % max(400, round(2000 * h / w)) if w >= h else "%d 2000" % max(4
 PY
 )"
   for side in top bottom; do
-    "${CLI}" pcb render --side "${side}" --background opaque -w "${size% *}" -h "${size#* }" \
+    "${CLI}" pcb render --side "${side}" --background opaque --width "${size% *}" --height "${size#* }" \
       -o "${rev}/render_${side}.png" "${pcb}" >/dev/null 2>&1 || fail "render ${side}"
     echo "${rev}/render_${side}.png  ($(python3 -c 'import struct, sys; f = open(sys.argv[1], "rb"); f.read(16); print("%dx%d" % struct.unpack(">II", f.read(8)))' "${rev}/render_${side}.png"))"
   done
