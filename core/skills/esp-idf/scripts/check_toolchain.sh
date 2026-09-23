@@ -103,9 +103,62 @@ if [[ ${tools_ok} -eq 1 ]]; then
 fi
 [[ ${tools_ok} -eq 1 ]] || status=1
 
-# Bridge names first (CP210x, FTDI, WCH), then usbmodem: Espressif's native USB-Serial-JTAG
-# or a CDC-class bridge such as the CH343 (SKILL.md step 1 tells them apart). macOS: cu.*, never tty.*
-ports="$(ls /dev/cu.usbserial-* /dev/cu.wchusbserial* /dev/cu.SLAB_USBtoUART* /dev/cu.usbmodem* 2>/dev/null | tr '\n' ' ')"
-echo "boards:      ${ports:-none on USB (use the UART connector)}"
+# Serial ports on USB, each labelled by the USB vendor ID of the device it hangs off in the
+# IORegistry (read-only), because the name alone cannot tell a CH343 bridge (usbmodem*) from
+# Espressif's native USB-Serial-JTAG. A port is listed if its name looks like a board
+# (usbserial, SLAB_USBtoUART, wchusbserial, usbmodem) or ioreg puts it under a USB device;
+# Bluetooth and debug-console ports are neither. macOS: cu.*, never tty.*
+IFS= read -r -d '' PORTS_PY <<'EOF' || true   # read -d '' returns 1 at the end of the heredoc
+import plistlib, re, sys
+KNOWN = {0x10C4: "CP210x bridge", 0x1A86: "WCH bridge", 0x0403: "FTDI bridge"}
+try:
+    roots = plistlib.loads(sys.stdin.buffer.read())
+except Exception:
+    roots = []
+usb = {}
+def walk(node, dev):
+    if not isinstance(node, dict):
+        return
+    if isinstance(node.get("idVendor"), int):
+        dev = node
+    cu = node.get("IOCalloutDevice")
+    if isinstance(cu, str) and dev is not None:
+        usb.setdefault(cu, dev)
+    for child in node.get("IORegistryEntryChildren") or []:
+        walk(child, dev)
+for root in roots if isinstance(roots, list) else [roots]:
+    walk(root, None)
+named = re.compile(r"/dev/cu\.(usbserial|SLAB_USBtoUART|wchusbserial|usbmodem)")
+for port in sorted({p for p in sys.argv[1:] if named.match(p)} | set(usb)):
+    dev = usb.get(port)
+    if dev is None:
+        print(f"{port}  unknown (no USB device for it in ioreg)")
+        continue
+    vid, pid = dev["idVendor"], dev.get("idProduct")
+    pid = pid if isinstance(pid, int) else 0
+    name = dev.get("USB Product Name") or dev.get("kUSBProductString") or dev.get("IORegistryEntryName") or "?"
+    if vid == 0x303A:
+        label = "native USB-Serial-JTAG" if pid == 0x1001 else "Espressif native USB"
+    else:
+        label = KNOWN.get(vid, "unknown")
+    print(f'{port}  {label}  {vid:04x}:{pid:04x}  "{name}"')
+EOF
+shopt -s nullglob
+cu_ports=(/dev/cu.*)
+shopt -u nullglob
+if boards="$(ioreg -a -r -c IOUSBHostDevice -l 2>/dev/null \
+    | python3 -c "${PORTS_PY}" ${cu_ports[@]+"${cu_ports[@]}"} 2>/dev/null)"; then
+  :
+else
+  # No python3 or no ioreg: fall back to the names alone.
+  boards="$(printf '%s\n' ${cu_ports[@]+"${cu_ports[@]}"} \
+    | grep -E '^/dev/cu\.(usbserial|SLAB_USBtoUART|wchusbserial|usbmodem)' \
+    | sed 's/$/  (type unknown: ioreg lookup failed)/')"
+fi
+if [[ -n "${boards}" ]]; then
+  printf '%s\n' "${boards}" | sed '1s/^/boards:      /; 2,$s/^/             /'
+else
+  echo "boards:      none on USB (use the UART connector)"
+fi
 
 exit "${status}"

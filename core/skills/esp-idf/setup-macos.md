@@ -59,7 +59,7 @@ Bumping the version later: pick the newest patch of a release line that is still
 As of 2026-09-23: v5.5 left its service period on 2026-07-21 and gets maintenance fixes until 2028-01-21; the next target is v6.1, in service until 2027-08-25. A major bump (5.x to 6.x) means code changes. Check these:
 
 - esptool 5: the command is `esptool`, not `esptool.py`, and subcommands are kebab-case (`write-flash`).
-- esp-idf-monitor 1.10 or newer, so the scripted monitor in SKILL.md step 5 becomes usable.
+- esp-idf-monitor 1.10 or newer, so the scripted monitor in SKILL.md step 5 becomes usable. (v5.5's constraints allow 1.10 too; re-running `./install.sh <chips>` on the current tag fetches it.)
 - Component manager 3.0 re-solves every `dependencies.lock`; commit the new locks.
 - Python 3.10 or newer.
 - The legacy I2S, RMT, timer, ADC, PCNT, MCPWM, DAC and sigma-delta drivers are removed (legacy I2C stays, end-of-life, until 7.0), and the `driver` component no longer pulls in `esp_driver_*`: a component that has `driver` in `REQUIRES` must add the `esp_driver_*` components it uses (`~/projects/aquila/firmware/main/CMakeLists.txt` is one).
