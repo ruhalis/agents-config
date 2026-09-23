@@ -4,12 +4,14 @@ Minimal Isaac Lab 2.3 DirectRLEnv template.
 Place this under:
     <your_project>/<your_task>/<your_task>_env.py
 
-Register the task in the sibling __init__.py (see task_register.py).
+Register the task in the sibling __init__.py (see task_register.py); the runner cfg
+goes in agents/ (see agents/rsl_rl_ppo_cfg.py).
 
-Run with:
-    cd ~/IsaacLab
-    ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
+Run with (Isaac venv active, or the binary install's python.sh behind isaaclab.sh):
+    OMNI_KIT_ACCEPT_EULA=YES <IsaacLab>/isaaclab.sh -p \
+        <IsaacLab>/scripts/reinforcement_learning/rsl_rl/train.py \
         --task Isaac-MyTask-Direct-v0 --headless --num_envs 4096
+Stock train.py only sees tasks in isaaclab_tasks; for an external project see task_register.py.
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ from __future__ import annotations
 import torch
 
 import isaaclab.sim as sim_utils
+from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets import Articulation, ArticulationCfg
 from isaaclab.envs import DirectRLEnv, DirectRLEnvCfg
 from isaaclab.scene import InteractiveSceneCfg
@@ -32,22 +35,30 @@ class MyTaskEnvCfg(DirectRLEnvCfg):
     episode_length_s = 10.0             # 10 second episodes
 
     # --- Spaces (Lab 2.x style: declare sizes here, gym.Space is built for you) ---
-    action_space = 4                    # e.g. 4 actuators
-    observation_space = 16              # e.g. 16-dim proprioceptive observation
+    action_space = 4                    # e.g. 4 actuated joints (effort on all of them)
+    observation_space = 14              # = 2*num_joints + 6; must equal the concatenated obs width
     state_space = 0                     # 0 means single-agent / no critic-only state
 
     # --- Simulation ---
     sim: SimulationCfg = SimulationCfg(dt=1 / 120, render_interval=decimation)
 
     # --- Scene: num_envs, env spacing, robot config ---
-    # Replace ROBOT_CFG with one from isaaclab_assets, or build your own ArticulationCfg.
-    # Example: from isaaclab_assets import CARTPOLE_CFG
+    # Replace with one from isaaclab_assets, or build your own ArticulationCfg. Example:
+    #   from isaaclab_assets import CARTPOLE_CFG
+    #   robot_cfg: ArticulationCfg = CARTPOLE_CFG.replace(prim_path="/World/envs/env_.*/Robot")
     robot_cfg: ArticulationCfg = ArticulationCfg(
         prim_path="/World/envs/env_.*/Robot",        # /env_.* expands per env
         spawn=sim_utils.UsdFileCfg(usd_path="REPLACE_WITH_YOUR_USD_PATH"),
         init_state=ArticulationCfg.InitialStateCfg(pos=(0.0, 0.0, 0.5)),
-        actuators={},                                # populate with ImplicitActuatorCfg etc.
+        actuators={
+            # effort control needs stiffness=0 (no actuators = efforts never reach PhysX)
+            "all": ImplicitActuatorCfg(
+                joint_names_expr=[".*"], stiffness=0.0, damping=0.0, effort_limit_sim=100.0
+            ),
+        },
     )
+    # Joint subset instead of all joints (then action_space = number of matched joints):
+    # actuated_joint_names = ["joint_1", "joint_2"]
 
     scene: InteractiveSceneCfg = InteractiveSceneCfg(
         num_envs=4096,
@@ -68,6 +79,8 @@ class MyTaskEnv(DirectRLEnv):
         super().__init__(cfg, render_mode, **kwargs)
         # action buffer — set in _pre_physics_step, applied in _apply_action
         self.actions = torch.zeros(self.num_envs, self.cfg.action_space, device=self.device)
+        # Joint subset: resolve indices once, then pass joint_ids= in _apply_action
+        # self._act_ids, _ = self.robot.find_joints(self.cfg.actuated_joint_names)
 
     # 1. Build scene -----------------------------------------------------------
     def _setup_scene(self):
@@ -91,6 +104,7 @@ class MyTaskEnv(DirectRLEnv):
     def _apply_action(self) -> None:
         # Example: torque/effort control on all joints
         self.robot.set_joint_effort_target(self.actions)
+        # Joint subset: self.robot.set_joint_effort_target(self.actions, joint_ids=self._act_ids)
 
     # 4. Observations ----------------------------------------------------------
     def _get_observations(self) -> dict:

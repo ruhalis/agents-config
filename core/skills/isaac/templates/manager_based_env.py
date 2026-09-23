@@ -7,8 +7,11 @@ prefer DirectRLEnv (see direct_rl_env.py).
 
 Layout convention:
     my_task/
-        __init__.py            # gym.register(...)
+        __init__.py            # gym.register(..., entry_point="isaaclab.envs:ManagerBasedRLEnv")
         my_task_env_cfg.py     # this file
+        agents/
+            __init__.py
+            rsl_rl_ppo_cfg.py  # see agents/rsl_rl_ppo_cfg.py
         mdp/
             __init__.py
             rewards.py         # reward term functions
@@ -20,6 +23,7 @@ Layout convention:
 from __future__ import annotations
 
 import isaaclab.sim as sim_utils
+from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg
 from isaaclab.envs import ManagerBasedRLEnvCfg
 from isaaclab.managers import (
@@ -47,10 +51,15 @@ class MyTaskSceneCfg(InteractiveSceneCfg):
         spawn=sim_utils.DomeLightCfg(intensity=2000.0, color=(0.75, 0.75, 0.75)),
     )
     robot: ArticulationCfg = ArticulationCfg(
-        prim_path="{ENV_REGEX_NS}/Robot",            # placeholder, replace per env
+        prim_path="{ENV_REGEX_NS}/Robot",            # keep as is; InteractiveScene expands it to /World/envs/env_.*
         spawn=sim_utils.UsdFileCfg(usd_path="REPLACE_WITH_YOUR_USD_PATH"),
         init_state=ArticulationCfg.InitialStateCfg(pos=(0.0, 0.0, 0.5)),
-        actuators={},
+        actuators={
+            # effort control needs stiffness=0 (no actuators = efforts never reach PhysX)
+            "all": ImplicitActuatorCfg(
+                joint_names_expr=[".*"], stiffness=0.0, damping=0.0, effort_limit_sim=100.0
+            ),
+        },
     )
 
 
@@ -84,7 +93,7 @@ class RewardsCfg:
     alive = RewTerm(func=mdp.is_alive, weight=1.0)
     terminating = RewTerm(func=mdp.is_terminated, weight=-2.0)
     # add task-specific rewards here, e.g.:
-    # progress = RewTerm(func=mdp.base_lin_vel_x, weight=1.0)
+    # progress = RewTerm(func=my_mdp.forward_vel, weight=1.0)  # define in mdp/rewards.py: return env.scene["robot"].data.root_lin_vel_b[:, 0]
 
 
 # --- Termination manager ---

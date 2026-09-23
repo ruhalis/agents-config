@@ -1,9 +1,10 @@
 """
 Minimal Isaac Sim 5.1 standalone script template.
 
-Run with:
-    $ISAAC_SIM_PATH/python.sh standalone_isaac.py
-    $ISAAC_SIM_PATH/python.sh standalone_isaac.py --headless
+Run with Isaac's Python 3.11, never the system python:
+    <venv>/bin/python standalone_isaac.py --headless        # pip install (e.g. ~/isaac/venv)
+    $ISAACSIM_PATH/python.sh standalone_isaac.py --headless  # binary (zip) install
+Prefix headless/SSH runs with OMNI_KIT_ACCEPT_EULA=YES (no interactive EULA prompt).
 """
 
 import argparse
@@ -57,5 +58,13 @@ for i in range(args.num_steps):
         pos, _ = cube.get_world_pose()
         print(f"step={i}  cube_z={pos[2]:.3f}")
 
-# --- 6. Clean shutdown ---
-simulation_app.close()
+# --- 6. Shutdown ---
+# simulation_app.close() hangs on Blackwell (RTX 50xx) Kit teardown (see cooper/scripts/setup_sim.sh),
+# so flush (and close any files you wrote) and hard-exit once the work is done.
+# On other GPUs the clean form is:
+#   simulation_app.close()
+import os
+import sys
+
+sys.stdout.flush()
+os._exit(0)

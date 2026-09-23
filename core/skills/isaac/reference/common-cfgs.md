@@ -33,12 +33,15 @@ ROBOT_CFG = ArticulationCfg(
             joint_names_expr=[".*"],
             stiffness=100.0,
             damping=10.0,
-            effort_limit=200.0,
-            velocity_limit=10.0,
+            effort_limit_sim=200.0,
+            velocity_limit_sim=10.0,
         ),
     },
 )
 ```
+
+- stiffness>0 plus `set_joint_position_target` for position control; stiffness=0 for effort control.
+- `*_sim` limits go to PhysX; `effort_limit`/`velocity_limit` only clip explicit actuators (`IdealPDActuatorCfg`/`DCMotorCfg`). On an implicit actuator `velocity_limit` is ignored.
 
 ## Articulation from a URDF (convert at runtime)
 
@@ -51,12 +54,18 @@ spawn=sim_utils.UrdfFileCfg(
     fix_base=False,
     merge_fixed_joints=True,
     convert_mimic_joints_to_normal_joints=False,
+    # the default JointDriveCfg leaves gains.stiffness MISSING and fails env cfg validation
+    joint_drive=sim_utils.UrdfConverterCfg.JointDriveCfg(
+        gains=sim_utils.UrdfConverterCfg.JointDriveCfg.PDGainsCfg(stiffness=None, damping=None)
+    ),  # None = keep URDF values; the actuator cfg sets the gains. Or joint_drive=None.
 )
 ```
 
+For training, prefer offline conversion (`<IsaacLab>/scripts/tools/convert_urdf.py` or the project's own converter) and spawn the USD with `UsdFileCfg`.
+
 ## Camera sensor
 
-For training with cameras, remember to launch with `--enable_cameras` when `--headless` is set.
+`--enable_cameras`: required whenever the env has Camera/TiledCamera sensors, GUI or headless. Without it, env creation raises RuntimeError "A camera was spawned without the --enable_cameras flag". `--video` turns it on automatically.
 
 ```python
 from isaaclab.sensors import CameraCfg
@@ -99,7 +108,7 @@ height_scanner_cfg = RayCasterCfg(
     prim_path="/World/envs/env_.*/Robot/base",
     update_period=0.02,
     offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 20.0)),
-    attach_yaw_only=True,
+    ray_alignment="yaw",                           # attach_yaw_only is deprecated since 2.1.1
     pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=(1.6, 1.0)),
     debug_vis=False,
     mesh_prim_paths=["/World/ground"],
@@ -150,7 +159,9 @@ from isaaclab.scene import InteractiveSceneCfg
 scene_cfg = InteractiveSceneCfg(
     num_envs=4096,
     env_spacing=4.0,
-    replicate_physics=True,            # True is faster but blocks per-env physics randomization
+    # True = shared USD prototypes (fast). Set False only for USD-level per-env variation
+    # (scale/texture/color/multi-asset); mass/friction DR works with True.
+    replicate_physics=True,
 )
 ```
 
