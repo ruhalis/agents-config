@@ -1,10 +1,10 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Bounded serial reader for Espressif boards, for use from tool calls.
 
 Reads a port for a fixed number of seconds, prints what arrives, and exits.
-`idf.py monitor` is interactive and never returns; this does. It needs
-pyserial, which lives in the ESP-IDF venv: source ~/esp/esp-idf/export.sh
-first and run this with that shell's `python`.
+`idf.py monitor` needs a terminal, so it cannot run from a tool call; this
+can. It needs pyserial, which lives in the ESP-IDF venv: source
+~/esp/esp-idf/export.sh first and run this with that shell's `python`.
 
   serial_tail.py PORT [--seconds N] [--baud B] [--reset] [--until REGEX]
                       [--max-lines N]
@@ -13,16 +13,21 @@ first and run this with that shell's `python`.
                first line. DTR is left deasserted, so IO0 stays high and the
                chip boots normally rather than into the ROM bootloader.
   --until      stop as soon as a line matches REGEX (exit 0); exit 2 if the
-               deadline passes without a match
+               deadline passes without a match, 4 if --max-lines ends the
+               read first
   --max-lines  stop after N lines so a chatty firmware cannot flood the
                caller (default 400)
 
-Exit codes: 0 done (or --until matched), 1 port error, 2 --until not matched.
+Exit codes: 0 done (or --until matched), 1 port error (cannot open, or lost
+mid-read), 2 deadline passed without an --until match, 3 usage or environment
+error (bad arguments or regex, no pyserial), 4 --max-lines reached before an
+--until match.
 
 Prefer the UART bridge port (/dev/cu.usbserial-*, /dev/cu.SLAB_USBtoUART*,
-/dev/cu.wchusbserial*).
-The native USB-Serial-JTAG port (/dev/cu.usbmodem*) re-enumerates when the
-chip resets, so --reset on it usually ends in a port error.
+/dev/cu.wchusbserial*, or /dev/cu.usbmodem* for a CDC bridge such as the
+CH343). Espressif's native USB-Serial-JTAG port (USB ID 303a:1001, also a
+/dev/cu.usbmodem*) re-enumerates when the chip resets, so --reset on it
+usually ends in a port error: omit --reset there.
 """
 import argparse
 import re
@@ -32,10 +37,16 @@ import time
 MAX_SECONDS = 60.0
 
 
+class Parser(argparse.ArgumentParser):
+    """argparse exits 2 on a usage error; 2 means "no --until match" here."""
+
+    def error(self, message):
+        self.print_usage(sys.stderr)
+        self.exit(3, f"{self.prog}: error: {message}\n")
+
+
 def main() -> int:
-    ap = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    ap = Parser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("port", help="/dev/cu.usbserial-... (UART connector) or /dev/cu.usbmodem...")
     ap.add_argument("--seconds", type=float, default=15.0, help="how long to read (max 60)")
     ap.add_argument("--baud", type=int, default=115200)
@@ -45,21 +56,27 @@ def main() -> int:
     args = ap.parse_args()
 
     try:
+        pattern = re.compile(args.until) if args.until else None
+    except re.error as exc:
+        print(f"bad --until regex: {exc}", file=sys.stderr)
+        return 3
+    try:
         import serial
     except ImportError:
-        sys.exit("pyserial not found: source ~/esp/esp-idf/export.sh and run with its `python`")
+        print("pyserial not found: source ~/esp/esp-idf/export.sh and run with its `python`", file=sys.stderr)
+        return 3
 
     seconds = min(max(args.seconds, 0.5), MAX_SECONDS)
     max_lines = max(args.max_lines, 1)
-    try:
-        pattern = re.compile(args.until) if args.until else None
-    except re.error as exc:
-        sys.exit(f"bad --until regex: {exc}")
 
     try:
         port = serial.Serial(args.port, args.baud, timeout=0.2)
     except serial.SerialException as exc:
-        sys.exit(f"cannot open {args.port}: {exc}")
+        print(f"cannot open {args.port}: {exc}", file=sys.stderr)
+        return 1
+    except ValueError as exc:
+        print(f"bad serial setting: {exc}", file=sys.stderr)
+        return 3
 
     lines = 0
     matched = False
@@ -115,7 +132,7 @@ def main() -> int:
             f"[serial_tail] no match for {args.until!r} within {elapsed:.1f}s ({lines} lines)",
             file=sys.stderr,
         )
-        return 2
+        return 4 if truncated else 2
     print(f"[serial_tail] {lines} lines in {elapsed:.1f}s", file=sys.stderr)
     return 0
 
