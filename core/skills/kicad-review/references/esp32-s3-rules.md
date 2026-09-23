@@ -13,30 +13,30 @@ not read from the source and must be checked before it becomes a finding.
 | GPIO | Role | Reset-time state | Rule | Source |
 |---|---|---|---|---|
 | 0 | Strapping: boot mode (with 46) | Weak pull-up = 1 | Boot button to GND is fine; nothing may hold it low at reset | DS Table 4-1 |
-| 3 | Strapping: JTAG signal source | Floating, no internal pull | Do not leave it driven by a peripheral at reset; if used, pull deliberately | DS Table 4-1 |
+| 3 | Strapping: JTAG signal source | Floating, no internal pull | Ignored with default eFuses (Table 4-5); still, do not leave it driven by a peripheral at reset; if used, pull deliberately | DS Table 4-1, 4-5 |
 | 45 | Strapping: VDD_SPI 3.3 V / 1.8 V | Weak pull-down = 0 | Never pull up on a 3.3 V-flash module; a high here switches VDD_SPI to 1.8 V | DS Table 4-1 |
-| 46 | Strapping: boot mode (with 0), ROM log | Weak pull-down = 0 | Must be low at reset for normal boot (typed I/O/T in DS Table 3-1, so usable after boot with care) | DS Table 4-1, 3-1 |
+| 46 | Strapping: boot mode (with 0), ROM log | Weak pull-down = 0 | Don't-care for SPI boot; must be low whenever GPIO0 is held low (download mode); GPIO0=0 with GPIO46=1 is invalid; also gates ROM log printing; weak pull-down, so leave it undriven at reset (typed I/O/T in DS Table 3-1, so usable after boot with care) | DS v1.8 Tables 4-1, 4-3, 3-1 |
 | 19, 20 | USB D-, D+ (USB-Serial-JTAG and USB OTG) | | Route as a pair to the USB-C connector; series 22–33 Ω per HDG checklist | HDG schematic checklist |
 | 43, 44 | UART0 TXD0, RXD0 (ROM console, download mode) | | Keep them for the console unless the design has USB-Serial-JTAG and says so | DS pin table |
-| 26–32 | In-package flash SPI | | Not bonded out on WROOM-1/1U (41-pin module has no IO26–IO34) | DS pin table |
+| 26–32 | Module SPI flash/PSRAM bus | | Not bonded out on WROOM-1/1U (41-pin module has no IO26–IO34) | DS pin table |
 | 33, 34 | Octal flash/PSRAM lines | | Not bonded out on WROOM-1/1U | DS pin table |
 | 35, 36, 37 | Octal PSRAM (R8 and R16V variants: N4R8, N8R8, N16R8, N16R16V, N16R16VA) | | Unavailable on any module with octal PSRAM (footnote b); free only on quad-PSRAM (R2) and no-PSRAM variants. WROOM-2 modules (e.g. N32R16V) have their own datasheet: `unverified` here | DS pin table note b, Table 1-1 |
 | 47, 48 | | | On R16V modules VDD_SPI is 1.8 V and GPIO47/48 run at 1.8 V, not 3.3 V | DS footnote on N16R16VA / R16V |
-| 39–42 | JTAG MTCK/MTDO/MTDI/MTMS | | Usable as GPIO; JTAG then moves to USB | DS pin table |
+| 39–42 | JTAG MTCK/MTDO/MTDI/MTMS | | Usable as GPIO: JTAG defaults to USB-Serial-JTAG; pads 39–42 carry JTAG only if eFuses are burned | DS Table 4-5 |
 | 1–10 | ADC1 | | Use ADC1 for analog inputs | DS pin table |
 | 11–20 | ADC2 | | ADC2 is shared with Wi-Fi; treat as unusable for analog while Wi-Fi is on | DS pin table / HDG |
 | 0–21 | RTC GPIO | | Only these can wake from deep sleep | DS pin table |
 
-Strapping pins are latched at reset and must hold their level for the setup/hold window (DS Table 4-2, hold ≥ 3 ms
-after EN rises per the guidelines agent's read; re-check the exact figure in DS 4-2 before citing it).
+Strapping pins are latched at reset and must hold their level for the setup/hold window: tSU ≥ 0 ms, tH ≥ 3 ms after
+EN rises (DS v1.8 Table 4-2).
 
 Module variants: the Value field of the symbol must name the exact ordering code (e.g. `ESP32-S3-WROOM-1-N16R8`).
 The N/R suffix decides whether IO35–37 exist and whether GPIO47/48 are 1.8 V. A schematic that uses IO35–37 on an
 R8 module is an error, not a warning.
 
-Peripheral counts (`unverified` here: taken from the ESP32-S3 Series Datasheet from memory of the peripherals
-table; confirm in that datasheet before a finding depends on them): 3 × UART, RMT 4 TX + 4 RX channels, LEDC 8
-channels, 2 × I2C, 2 × I2S, SPI2 and SPI3 general-purpose, 1 × TWAI, USB OTG full-speed.
+Peripheral counts: 3 × UART (DS v1.8 §5.2.1.1), 2 × I2C (§5.2.1.2), 2 × I2S (§5.2.1.3), SPI2 and SPI3
+general-purpose (§5.2), 1 × TWAI (§5.2.1.6), USB 2.0 OTG full-speed (§5.2.1.7), RMT 4 TX + 4 RX channels
+(§5.2.1.11), LEDC 8 channels (ESP32-S3 Series Datasheet v2.2, feature list).
 
 ## Power, reset, boot
 
@@ -54,9 +54,9 @@ channels, 2 × I2C, 2 × I2S, SPI2 and SPI3 general-purpose, 1 × TWAI, USB OTG 
 | Check | Rule | Source |
 |---|---|---|
 | Antenna placement | Module antenna hangs off the board edge, or its feed area sits at the edge with copper cleared on all layers under and around it | HDG PCB layout; DS keepout figure |
-| Keepout | Datasheet keepout zone under the antenna; ≥ 15 mm clearance from the antenna to enclosure metal and other components in the guidelines | DS pin diagram / HDG |
+| Keepout | Datasheet keepout zone under the antenna; ≥ 15 mm from the antenna to the housing in all directions | DS pin diagram / HDG |
 | WROOM-1U | External antenna variant has no on-board keepout requirement | DS |
-| Ground | Solid ground under the module except the antenna area; EPAD (pin 41) tied to GND with a via array (HDG says ≥ 9 vias) | HDG |
+| Ground | Solid ground under the module except the antenna area; EPAD (pin 41) tied to GND with a via array (≥ 9 vias is the HDG's figure for the chip's own ground pad, a heuristic here) | HDG |
 | Power traces | Main power trace ≥ 25 mil on a 4-layer board per HDG | HDG |
 | USB | D+/D- as a 90 Ω differential pair, short, no stubs | HDG |
 

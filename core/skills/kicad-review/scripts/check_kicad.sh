@@ -51,11 +51,33 @@ if [[ "${have}" != unknown ]]; then
   fi
 fi
 
-# kicad-happy: optional third-party review plugin (Claude Code marketplace). Present or not, nothing here changes.
-if [[ -d "${HOME}/.claude/plugins/marketplaces/kicad-happy" ]] || ls -d "${HOME}"/.claude/plugins/cache/kicad-happy* >/dev/null 2>&1; then
-  echo "kicad-happy: installed as a Claude Code plugin"
-else
-  echo "kicad-happy: not installed (optional; README at github.com/aklofas/kicad-happy)"
+# kicad-happy: optional third-party plugin, Claude Code only. Informational; the status never changes the exit code.
+# Enabled state from ~/.claude/settings.json enabledPlugins, version and path from ~/.claude/plugins/installed_plugins.json.
+if ! python3 - "${HOME}" 2>/dev/null <<'PY'
+import json, os, sys
+home = sys.argv[1]
+
+def load(p):
+    try:
+        return json.load(open(p))
+    except (OSError, ValueError):
+        return {}
+
+enabled = load(os.path.join(home, ".claude", "settings.json")).get("enabledPlugins", {}) or {}
+on = any(v for k, v in enabled.items() if k.split("@")[0] == "kicad-happy")
+inst = load(os.path.join(home, ".claude", "plugins", "installed_plugins.json")).get("plugins", {}) or {}
+rec = next((v[0] for k, v in inst.items() if k.split("@")[0] == "kicad-happy" and v), None)
+if not rec:
+    print("kicad-happy: not installed (optional; README at github.com/aklofas/kicad-happy)")
+    sys.exit(0)
+state = "enabled" if on else "installed but not enabled"
+print("kicad-happy: %s, %s in ~/.claude/settings.json (Claude Code only: under Codex or Cursor call the scripts by path, or skip)"
+      % (rec.get("version", "?"), state))
+scripts = os.path.join(rec.get("installPath", "?"), "skills", "kicad", "scripts")
+print("kh scripts:  %s%s" % (scripts, "" if os.path.isdir(scripts) else " (MISSING)"))
+PY
+then
+  echo "kicad-happy: unknown (python3 could not read ~/.claude)"
 fi
 
 # KiCad projects under the working directory, depth 4, skipping build trees.

@@ -1,9 +1,10 @@
-# Schematic-stage checklist (procedure step 2)
+# Schematic-stage checklist (procedure step 3)
 
 Walk every row. Each row names the evidence that closes it: `net` = the netlist export, `pdf` = the schematic
 PDF export you have looked at, `ds` = a fetched datasheet (cite URL and page), `note` = the project's design
-note or `## Hardware` section. A row with no evidence is reported as `unverified`, never as pass. Report as a
-table `sev | ref/net | finding | source`, errors first, at most ~25 rows, the rest summarised by type.
+note or `## Hardware` section, `ERC` = the step-2 `erc_drc.sh erc` result. A row with no evidence is reported as
+`unverified`, never as pass. Report as a table `sev | ref/net | finding | source`, errors first, at most ~25 rows, the
+rest summarised by type.
 
 ## A. Power tree
 
@@ -26,7 +27,7 @@ table `sev | ref/net | finding | source`, errors first, at most ~25 rows, the re
 | B3 | EN RC and reset button; boot button if the note asks for one | pdf |
 | B4 | Programming path: USB-Serial-JTAG on 19/20 or a UART bridge on 43/44 with auto-program; the first flash procedure is described in the note | pdf, note |
 | B5 | Console path exists and does not collide with a peripheral (UART0 pins reused → USB console must be stated) | net, note |
-| B6 | Every GPIO in the firmware pin header is a named net on the MCU; `pin_diff.py` exit 0 | script |
+| B6 | Every GPIO in the firmware pin header is a named net on the MCU; `pin_diff.py` exit 0 | script (step 4) |
 | B7 | Peripheral counts are not exceeded (UARTs, RMT channels, SPI hosts, I2S ports) for what the note lists | note, ds |
 
 ## C. Sensors and buses
@@ -54,9 +55,9 @@ table `sev | ref/net | finding | source`, errors first, at most ~25 rows, the re
 | # | Check | Closes with |
 |---|---|---|
 | E1 | Every symbol has a footprint and an LCSC (or MPN) field; DNP parts are flagged DNP, not deleted | BOM export |
-| E2 | Passives are 0402 or larger for economic assembly; 0201 only with standard assembly declared in the note | BOM, `jlcpcb-order.md` |
+| E2 | Passives are 0402 or larger for economic assembly; 0201 only with standard assembly declared in the note; finest IC and BGA pitch within the tier (Economic 0.4 / 0.5 mm, Standard 0.35 / 0.3 mm); for Standard, the board or its JLC panel is at least 70 × 70 mm | BOM, ds, note, `jlcpcb-order.md` |
 | E3 | Polarised parts (electrolytics, diodes, LEDs, connectors) have their polarity visible in the symbol and the footprint has a silkscreen mark | pdf, footprint |
-| E4 | ERC clean or every remaining item is a justified exclusion the user set in the GUI | `erc_drc.sh erc` |
+| E4 | ERC clean or every remaining item is a justified exclusion the user set in the GUI | ERC |
 
 ## F. Domain rows the note must state (the skill asks; the note answers)
 

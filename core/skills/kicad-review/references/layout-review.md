@@ -1,7 +1,8 @@
-# Layout-stage checklist (procedure step 5)
+# Layout-stage checklist (procedure step 6)
 
 Evidence: `stats` = `kicad-cli pcb export stats --format json`, `pdf` = per-layer PDF export you have looked at,
-`drc` = `erc_drc.sh drc`, `ds` = fetched datasheet, `note` = the design note. Same report format as the
+`layers` = the `(layers ...)` block of the `.kicad_pcb` read as text, `drc` = the step-5 `erc_drc.sh drc` result
+(`drc.json` and `drc_refilled.json`), `ds` = fetched datasheet, `note` = the design note. Same report format as the
 schematic stage. Layout judgement (placement, routing quality) is the user's; this list is what a reviewer can
 verify from exports.
 
@@ -9,10 +10,10 @@ verify from exports.
 
 | # | Check | Closes with |
 |---|---|---|
-| A1 | Edge.Cuts is one closed outline; board size and mounting holes match the note (hole diameter, pattern, keep-out around them) | pdf, note |
-| A2 | Copper layer count matches the note and `fab:` line; stackup set in board setup for a 4-layer board (JLC JLC04161H-7628 or as ordered) | stats, note |
+| A1 | Edge.Cuts is one closed outline; board size and mounting holes match the note (hole diameter, pattern, keep-out around them) | pdf, stats, note |
+| A2 | Copper layer count matches the note and `fab:` line: count the copper layer definitions in that block, `grep -cE '^[[:space:]]*\([0-9]+ "[^"]*\.Cu"' <b>.kicad_pcb`; stackup set in board setup for a 4-layer board (JLC JLC04161H-7628 or as ordered) | layers, note |
 | A3 | Track/clearance/via design rules set to the fab's capability for the chosen layer count and copper weight (see `jlcpcb-order.md`) | drc rules, note |
-| A4 | Fiducials (3, asymmetric) when assembling with standard service; none needed for economic | pdf, `jlcpcb-order.md` |
+| A4 | Fiducials (3, asymmetric) when assembling with standard service; fiducials on JLC's panel rails count when the `fab:` line says "Panel by JLCPCB"; none needed for economic | pdf, note, `jlcpcb-order.md` |
 
 ## B. Placement
 
@@ -35,7 +36,7 @@ verify from exports.
 | C4 | High-current returns (ESC, panel 5 V, amp) do not flow under the IMU or analog parts; split or routed away as the note describes | pdf, note |
 | C5 | Vias: no via-in-pad without the fab option; thermal reliefs on THT pads in planes; stitching vias along plane edges and under the module EPAD | pdf |
 | C6 | Silkscreen: refdes readable, not on pads (`--subtract-soldermask` handles the mask overlap, not the placement), polarity marks present | pdf |
-| C7 | Courtyards do not overlap; DRC clean including `unconnected_items` and schematic parity | drc |
+| C7 | Courtyards do not overlap; DRC clean including `unconnected_items` and schematic parity on the fills saved in the board. A stale-fill warning (counts change after the in-memory refill) is a finding: the user refills and saves in the GUI, and step 7 waits until the saved board passes without refill (`--refill-zones` and `--check-zones` refill in memory only, never saved) | drc |
 
 ## D. Test and assembly
 

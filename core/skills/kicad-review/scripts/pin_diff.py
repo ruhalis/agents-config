@@ -6,9 +6,11 @@
                 [--reserved LIST] [--caution LIST] [--pinmap pad_to_gpio.csv]
 
 Netlist: `kicad-cli sch export netlist --format kicadsexpr`. Only nodes whose (ref) equals --mcu are read.
-The GPIO number of a node comes from, in order: an --alias for its pin name, the first --io-regex match on the
-pin name (KiCad's RF_Module:ESP32-S3-WROOM-1 names pins IO4, IO12, ...), or --pinmap (CSV `pad,gpio`) by pad
-number. Built-in aliases cover the WROOM-1 pins that carry no number: USB_D-=19 USB_D+=20 RXD0=44 TXD0=43.
+KiCad 10 writes each node's pinfunction as NAME_<pad> (USB_D-_13, IO4_4); a trailing `_<pad>` equal to the node's
+pad is stripped before matching, and the raw name is kept in the note column. The GPIO number of a node comes from,
+in order: an --alias for its raw or stripped pin name, the first --io-regex match on the stripped name (KiCad's
+RF_Module:ESP32-S3-WROOM-1 names pins IO4, IO12, ...), or --pinmap (CSV `pad,gpio`) by pad number. Built-in
+aliases cover the WROOM-1 pins that carry no number: USB_D-=19 USB_D+=20 RXD0=44 TXD0=43.
 
 Header: flat `#define NAME <int>` lines matched by --pin-regex (default: names starting with PIN_). Comments are
 stripped; #if branches are not evaluated. Names are compared to net names by their `_`-separated tokens, case-
@@ -25,7 +27,7 @@ Verdicts, one row per GPIO:
   DUPLICATE       two header names on one GPIO (warning)
   PINMAP-CLASH    two MCU pins map to one GPIO through --alias/--pinmap (error)
 
-Exit 0: no error rows. 2: at least one error row. 1: misuse or a file that could not be parsed.
+Exit 0: no error rows. 2: at least one error row. 1: misuse (bad arguments included) or a file that could not be parsed.
 """
 import argparse
 import re
@@ -124,9 +126,15 @@ def strip_comments(src):
     return re.sub(r"//[^\n]*", "", src)
 
 
+class Parser(argparse.ArgumentParser):
+    def error(self, message):  # argparse exits 2, which here means error rows; misuse is 1
+        self.print_usage(sys.stderr)
+        sys.exit("%s: error: %s" % (self.prog, message))
+
+
 # ---------------------------------------------------------------- main
 def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = Parser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--netlist", required=True)
     ap.add_argument("--header", required=True)
     ap.add_argument("--mcu", required=True, help="reference designator of the MCU/module symbol, e.g. U1")
@@ -214,11 +222,16 @@ def main():
     clashes = []  # (gpio, first pinname, second pinname)
     unmapped = []
     for pinname, pad, netname in mcu_nodes:
+        # KiCad 10: pinfunction is NAME_<pad> (USB_D-_13). Aliases match the raw name first (a hand-passed
+        # --alias USB_D-_13=19 keeps working), then the stripped one; the regex runs on the stripped name.
+        base = pinname[:-(len(pad) + 1)] if pinname and pad and pinname.endswith("_" + pad) else pinname
         gpio = None
         if pinname in aliases:
             gpio = aliases[pinname]
+        elif base in aliases:
+            gpio = aliases[base]
         else:
-            m = io_re.search(pinname)
+            m = io_re.search(base)
             if m:
                 gpio = int(m.group(1))
             elif pad in pinmap:
