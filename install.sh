@@ -1,18 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Install this repo's agent config into Claude Code, Codex, and/or Cursor, and
-# its extension list into VS Code.
+# Install this repo's agent config into Claude Code and/or Codex, and its
+# extension list into VS Code.
 #
 #   ./install.sh                    install into every tool detected on this machine
 #   ./install.sh codex              install into one tool
-#   ./install.sh claude cursor      install into several
+#   ./install.sh claude codex       install into several
 #   ./install.sh vscode             install the VS Code extensions that are missing
-#   ./install.sh skills             link only the skills, into all three tools
+#   ./install.sh skills             link only the skills, into both tools
 #   ./install.sh all                install into all tools, detected or not
 #   ./install.sh --dry-run all      print the plan, change nothing
-#   ./install.sh --project ~/repo cursor
-#                                   write project-level Cursor rules into a repo
 #
 # Layout:
 #   core/          tool-agnostic source of truth (orchestration doc, agents, skills)
@@ -25,7 +23,6 @@ BUILD_DIR="$REPO_DIR/build"
 BACKUP_ROOT="$HOME/.agent-config-backups/$(date +%Y%m%d-%H%M%S)"
 
 DRY_RUN=0
-PROJECT_DIR=""
 TOOLS=()
 
 # ---------------------------------------------------------------- output ----
@@ -131,8 +128,8 @@ backup() {
 # sweep_dir <dir> <label> [keep] — make dir mirror the repo exactly: everything
 # not ours is backed up, except entries named in the space-separated keep list.
 # ONLY for directories this repo owns outright (Claude's).
-# Never use on ~/.codex/skills or ~/.cursor/skills: those hold tool-bundled and
-# third-party skills that this repo has no business deleting.
+# Never use on ~/.codex/skills: it holds tool-bundled and third-party skills
+# that this repo has no business deleting.
 sweep_dir() {
     local dir="$1" label="$2" keep=" ${3-} " entry
     [ -d "$dir" ] || return 0
@@ -196,25 +193,14 @@ compose() {
 
 # --------------------------------------------------------- agent codegen ----
 
-# Claude's agent format is the richest, so core/agents/*.md is written in it and
-# the other tools are derived. Read-only intent is derived from the tools list
+# Claude's agent format is the richer one, so core/agents/*.md is written in it
+# and the Codex format is derived. Read-only intent is derived from the tools list
 # rather than a separate field: no Edit/Write means the agent only advises.
 agent_is_readonly() {
     case "$(fm_field "$1" tools)" in
         *Edit*|*Write*) return 1 ;;
         *) return 0 ;;
     esac
-}
-
-# Cursor: same markdown shape, but only name and description are specified
-# fields. Strip Claude-only keys rather than betting on them being ignored.
-gen_agent_cursor() {
-    local src="$1"
-    printf -- '---\n'
-    printf 'name: %s\n' "$(fm_field "$src" name)"
-    printf 'description: %s\n' "$(fm_field "$src" description)"
-    printf -- '---\n\n'
-    fm_body "$src"
 }
 
 # Codex: TOML, body becomes developer_instructions, read-only intent becomes an
@@ -265,8 +251,8 @@ skills_claude() {
     link_skills "$1"
 }
 
-# ~/.codex/skills and ~/.cursor/skills are shared: tool-bundled and third-party
-# skills live there too. Reconcile, never sweep.
+# ~/.codex/skills is shared: tool-bundled and third-party skills live there
+# too. Reconcile, never sweep.
 skills_shared() {
     mk "$1"
     reconcile_dir "$1"
@@ -299,12 +285,11 @@ report_skills() {
 }
 
 install_skills() {
-    local c="$HOME/.claude/skills" x="$HOME/.codex/skills" u="$HOME/.cursor/skills"
-    step "Skills -> $c, $x, $u"
+    local c="$HOME/.claude/skills" x="$HOME/.codex/skills"
+    step "Skills -> $c, $x"
     skills_claude "$c"
     skills_shared "$x"
-    skills_shared "$u"
-    report_skills "$c" "$x" "$u"
+    report_skills "$c" "$x"
 }
 
 # Lint core/skills and compare them with the claude.ai copies. Both only report:
@@ -480,55 +465,6 @@ codex_capability_check() {
         warn "this Codex build has no skills support — ~/.codex/skills/ will be ignored. Upgrade: npm i -g @openai/codex@latest"
 }
 
-install_cursor() {
-    local dir="$HOME/.cursor"
-    step "Cursor -> $dir"
-    mk "$dir"
-
-    # subagents — same markdown shape as Claude, minus the Claude-only keys
-    mk "$dir/agents"
-    reconcile_dir "$dir/agents"
-    local f name
-    for f in "$REPO_DIR"/core/agents/*.md; do
-        [ -e "$f" ] || continue
-        name=$(fm_field "$f" name)
-        gen_agent_cursor "$f" | emit "$BUILD_DIR/cursor/agents/$name.md"
-        link "$BUILD_DIR/cursor/agents/$name.md" "$dir/agents/$name.md"
-    done
-
-    # skills — shared directory; reconcile, never sweep
-    skills_shared "$dir/skills"
-
-    # Cursor keeps User Rules inside the app, with no file to install to. Best
-    # available: generate the text and put it on the clipboard to paste once.
-    compose cursor | emit "$BUILD_DIR/cursor/USER_RULES.md"
-    if [ "$DRY_RUN" = 0 ] && command -v pbcopy >/dev/null 2>&1; then
-        pbcopy < "$BUILD_DIR/cursor/USER_RULES.md"
-        note "orchestration doc copied to clipboard"
-    fi
-    warn "Cursor has no file-based global rules. Paste the clipboard (or build/cursor/USER_RULES.md) into Settings -> Rules -> User Rules. Re-paste after changing core/orchestration.md."
-    note "for a specific repo instead: ./install.sh --project <path> cursor"
-}
-
-install_cursor_project() {
-    local proj="$1"
-    [ -d "$proj" ] || die "not a directory: $proj"
-    proj="$(cd "$proj" && pwd)"
-    step "Cursor project rules -> $proj"
-
-    local rule="$proj/.cursor/rules/orchestration.mdc"
-    backup "$rule" "cursor-project"
-    {
-        printf -- '---\n'
-        printf 'description: Orchestration model — plan, decompose, delegate to subagents, synthesize.\n'
-        printf 'alwaysApply: true\n'
-        printf -- '---\n\n'
-        compose cursor
-    } | emit "$rule"
-    say "wrote $rule"
-    note "commit it to share with the repo, or add .cursor/rules/orchestration.mdc to .git/info/exclude"
-}
-
 # --------------------------------------------------------------- vscode ----
 
 # VS Code's CLI. `code` is only on PATH after "Shell Command: Install 'code'
@@ -592,21 +528,20 @@ while [ $# -gt 0 ]; do
     case "$1" in
         -h|--help) usage ;;
         -n|--dry-run) DRY_RUN=1 ;;
-        --project) shift; [ $# -gt 0 ] || die "--project needs a path"; PROJECT_DIR="$1" ;;
-        all) TOOLS=(claude codex cursor vscode) ;;
-        claude|codex|cursor|vscode|skills) TOOLS+=("$1") ;;
+        all) TOOLS=(claude codex vscode) ;;
+        claude|codex|vscode|skills) TOOLS+=("$1") ;;
         -*) die "unknown flag: $1 (try --help)" ;;
-        *) die "unknown tool: $1 (expected claude, codex, cursor, vscode, skills, or all)" ;;
+        *) die "unknown tool: $1 (expected claude, codex, vscode, skills, or all)" ;;
     esac
     shift
 done
 
 if [ ${#TOOLS[@]} -eq 0 ]; then
-    for t in claude codex cursor; do
+    for t in claude codex; do
         if command -v "$t" >/dev/null 2>&1 || [ -d "$HOME/.$t" ]; then TOOLS+=("$t"); fi
     done
     if vscode_cli >/dev/null 2>&1 || [ -d "$HOME/.vscode" ]; then TOOLS+=(vscode); fi
-    [ ${#TOOLS[@]} -gt 0 ] || die "no supported tool detected; name one explicitly (claude|codex|cursor|vscode|skills)"
+    [ ${#TOOLS[@]} -gt 0 ] || die "no supported tool detected; name one explicitly (claude|codex|vscode|skills)"
     note "detected: ${TOOLS[*]}"
 fi
 
@@ -621,15 +556,6 @@ TOOLS=("${UNIQ[@]}")
 printf '%sInstalling from %s%s\n' "$B" "$REPO_DIR" "$RST"
 [ "$DRY_RUN" = 1 ] && printf '%s(dry run — nothing will be written)%s\n' "$YEL" "$RST"
 
-if [ -n "$PROJECT_DIR" ]; then
-    case " ${TOOLS[*]} " in
-        *" cursor "*) ;;
-        *) die "--project currently applies to cursor only" ;;
-    esac
-    install_cursor_project "$PROJECT_DIR"
-    exit 0
-fi
-
 # The only submodule is the Claude statusline.
 case " ${TOOLS[*]} " in
     *" claude "*)
@@ -643,7 +569,7 @@ for t in "${TOOLS[@]}"; do
 done
 
 case " ${TOOLS[*]} " in
-    *" claude "*|*" codex "*|*" cursor "*|*" skills "*) skill_checks ;;
+    *" claude "*|*" codex "*|*" skills "*) skill_checks ;;
 esac
 
 printf '\n%sDone.%s Restart the tools you installed into.\n' "$B" "$RST"

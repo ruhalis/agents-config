@@ -43,7 +43,7 @@ kicad-happy is an optional Claude Code plugin (github.com/aklofas/kicad-happy, M
 - `spice` and `emc` run only when the user asks.
 - `lcsc`, `jlcpcb` and `datasheets` are for read-only lookups (stock, basic/extended status, datasheet fetch) and jlcpcb's rotation-offset table.
 - Never run `bom/edit_properties.py`, `sync_datasheet_urls.py`, or anything with `--write`, `--apply` or `--overwrite`. Their proposals go to the user as GUI edits.
-- Plugin absent or disabled: skip it. Under Codex or Cursor the plugin is not loaded: call the analyzers by the printed `kh scripts` path, or skip. Nothing else changes.
+- Plugin absent or disabled: skip it. Under Codex the plugin is not loaded: call the analyzers by the printed `kh scripts` path, or skip. Nothing else changes.
 
 ```bash
 KH=<kh scripts path from check_kicad.sh>; B=hardware/<b>; mkdir -p "$B/review/kicad-happy"

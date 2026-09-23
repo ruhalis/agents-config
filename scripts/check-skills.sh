@@ -26,7 +26,7 @@
 #   - a file a script reads as ${SKILL_DIR}/<file> (the version pins) that is missing
 # and warns, without failing, on __pycache__, *.pyc or .DS_Store inside a skill.
 #
-# Then every ~/.claude|.codex|.cursor/skills/<name>/<path> in the *.md files under
+# Then every ~/.claude|.codex/skills/<name>/<path> in the *.md files under
 # ~/projects must resolve in core/skills, since other repos call bundled scripts
 # by those paths.
 #
@@ -329,7 +329,7 @@ def check_skill(skill):
 
 # ---- references from other repos ----
 
-REF_RE = re.compile(r"(?:~|\$HOME|\$\{HOME\}|/Users/[^/\s`'\"]+)/\.(claude|codex|cursor)/skills/"
+REF_RE = re.compile(r"(?:~|\$HOME|\$\{HOME\}|/Users/[^/\s`'\"]+)/\.(claude|codex)/skills/"
                     r"([\w.-]+)((?:/[\w.@+-]*)*)")
 PRUNE = {".git", "node_modules", ".venv", "venv", "__pycache__", "build", "managed_components"}
 
