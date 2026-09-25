@@ -8,7 +8,7 @@ compatibility: Claude Code on macOS with KiCad 10 installed as /Applications/KiC
 
 Personal skill: it applies in every repo and holds the workflow, the KiCad pin, and the boundaries. Project facts (which `.kicad_pro`, which firmware pin header, which fab and layer count, the harness pinouts) come from the repo you are in: its `CLAUDE.md` `## Hardware` section, the pin header, `BOM.md`, the design notes. Read those first; never guess a pin map or a part number.
 
-Bundled files. `${CLAUDE_SKILL_DIR}` is the directory holding this SKILL.md (Claude Code substitutes it; in another tool use that directory's path, the skill is symlinked under the same name). Every script locates its own directory, so only this prose depends on the variable.
+Bundled files. `${CLAUDE_SKILL_DIR}` is the directory holding this SKILL.md (Claude Code substitutes it; where it does not, use `~/.claude/skills/kicad-review`, the installed symlink). Every script locates its own directory, so only this prose depends on the variable.
 
 | File | Use |
 |---|---|
@@ -48,7 +48,7 @@ kicad-happy is an optional Claude Code plugin (github.com/aklofas/kicad-happy, M
 - `spice` and `emc` run only when the user asks.
 - `lcsc`, `jlcpcb` and `datasheets` are for read-only lookups (stock, basic/extended status, datasheet fetch) and jlcpcb's rotation-offset table.
 - Never run `bom/edit_properties.py`, `sync_datasheet_urls.py`, or anything with `--write`, `--apply` or `--overwrite`. Their proposals go to the user as GUI edits.
-- Plugin absent or disabled: skip it. Under Codex the plugin is not loaded: call the analyzers by the printed `kh scripts` path, or skip. Nothing else changes.
+- Plugin absent or disabled: skip it. Nothing else changes.
 
 ```bash
 KH=<kh scripts path from check_kicad.sh>; B=hardware/<b>; mkdir -p "$B/review/kicad-happy"

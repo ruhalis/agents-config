@@ -14,10 +14,10 @@ Anything that can put current through a motor or change an actuator's target: a 
 
 ## Project facts: the `## Motors` section
 
-Read it first, from `CLAUDE.md`, `CLAUDE.local.md` or `AGENTS.md` in the project directory or the repo root:
+Read it first, from `CLAUDE.md` or `CLAUDE.local.md` in the project directory or the repo root:
 
 ```bash
-for d in "<dir>" "$(git -C "<dir>" rev-parse --show-toplevel 2>/dev/null)"; do for f in CLAUDE.md CLAUDE.local.md AGENTS.md; do [ -f "$d/$f" ] && awk '/^##?[ \t]/{p=/^## Motors[[:space:]]*$/} p' "$d/$f"; done; done | awk '!s[$0]++'
+for d in "<dir>" "$(git -C "<dir>" rev-parse --show-toplevel 2>/dev/null)"; do for f in CLAUDE.md CLAUDE.local.md; do [ -f "$d/$f" ] && awk '/^##?[ \t]/{p=/^## Motors[[:space:]]*$/} p' "$d/$f"; done; done | awk '!s[$0]++'
 ```
 
 Put it after `## Hardware` (kicad-review), not straight after `## Boards`: esp-idf reads a fixed 12 lines after that heading. One `key: value` per line. When a value differs per program (bench firmware, flight firmware, a host script), repeat the key and start the value with the program's name.

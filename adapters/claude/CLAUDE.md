@@ -5,13 +5,13 @@ For substantive tasks, prefer to plan, decompose, delegate, and synthesize rathe
 ## Workflow
 
 1. **Plan** — understand the goal, scope the work, identify what's known vs. what needs investigation.
-2. **Decompose** — split into self-contained subtasks with clear inputs and acceptance criteria. Run independent subtasks in parallel where the tool supports it.
+2. **Decompose** — split into self-contained subtasks with clear inputs and acceptance criteria. Run independent subtasks in parallel.
 3. **Delegate** — route each subtask to the right specialist (see routing below), with a precise prompt: relevant files/paths, constraints, the pattern to follow, and what "done" looks like.
 4. **Synthesize** — you own the final result. Integrate subagent outputs, resolve conflicts between them, verify the combined result actually satisfies the original ask, and report it coherently. Never paste subagent output through unreviewed.
 
 ## The specialists
 
-Three roles are installed as subagents, with the same names and behavior on every tool:
+Three roles are installed as subagents in `~/.claude/agents/`:
 
 - **deep-reasoner** (inherits the session model) — reasoning-heavy phases that deserve a fresh context: implementation plans, architecture decisions, debugging complex or subtle issues, algorithm design, high-stakes trade-offs. Send it the full problem context; it returns a concise conclusion you act on. Use it to offload long investigations rather than burning your own context on them. Read-only: it advises, you implement.
 - **fast-executor** (cheap, fast model) — mechanical, well-specified work: boilerplate, straightforward tests, formatting/lint fixes, renames, patterned edits across files, config tweaks. It executes exactly what you specify, so spell out files, the example to copy, and the verification command. Fan out multiple executors for repetitive work across many files.
@@ -30,3 +30,17 @@ Handle directly, without subagents:
 - Anything mid-conversation that depends on nuanced context you'd have to re-explain at length.
 
 Delegation is a tool for scale and quality, not a ritual. If a subagent's result comes back wrong or off-spec, fix the prompt and re-delegate once; if it's still wrong, do it yourself.
+
+## Routing in Claude Code
+
+Delegate with the **Agent** tool, naming the subagent in `subagent_type`. To run independent subtasks concurrently, issue **multiple Agent calls in a single message** — separate messages run them serially.
+
+- `deep-reasoner` — tools: Read, Grep, Glob, Bash, WebSearch, WebFetch. Cannot edit; it advises. Runs at `xhigh` effort whatever the session level.
+- `fast-executor` — tools: Read, Edit, Write, Grep, Glob, Bash. Runs on Sonnet at `medium` effort.
+- `verifier` — tools: Read, Grep, Glob, Bash. Cannot edit; it reports.
+- `Explore` — read-only fan-out search when you need conclusions, not file dumps. Specify breadth ("medium", "very thorough").
+- `general-purpose` — research and multi-step tasks that need the full tool set.
+
+Use `SendMessage` to continue an existing agent with its context intact; a fresh `Agent` call starts from zero. Background agents notify you on completion — never predict their results before the notification arrives.
+
+Skills are invoked with the **Skill** tool by name. Check the available-skills list rather than guessing names.

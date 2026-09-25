@@ -80,7 +80,7 @@ if not rec:
     print("kicad-happy: not installed (optional; README at github.com/aklofas/kicad-happy)")
     sys.exit(0)
 state = "enabled" if on else "installed but not enabled"
-print("kicad-happy: %s, %s in ~/.claude/settings.json (Claude Code only: under Codex call the scripts by path, or skip)"
+print("kicad-happy: %s, %s in ~/.claude/settings.json"
       % (rec.get("version", "?"), state))
 scripts = os.path.join(rec.get("installPath", "?"), "skills", "kicad", "scripts")
 print("kh scripts:  %s%s" % (scripts, "" if os.path.isdir(scripts) else " (MISSING)"))

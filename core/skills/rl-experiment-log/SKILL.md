@@ -5,13 +5,13 @@ description: Keeps a lab notebook of RL/IL training runs (e.g. Isaac Lab rsl_rl/
 
 # RL experiment log
 
-Arlan trains RL/IL policies in several repos (e.g. cooper: Isaac Lab PPO fine-tuned from BC; aquila/raptor-torch: SAC teachers → DAgger student; TVC rocket; Unitree G1 motion tracking). The problem this skill solves: after a few days it's unclear what was tried and why a reward change helped. Project specifics (where runs are recorded, which metric counts, where run dirs live) come from the repo's CLAUDE.md/AGENTS.md (its `## Experiments` section if it has one), not from this skill. Use the `isaac` skill for the code itself; this skill is for the record around it.
+Arlan trains RL/IL policies in several repos (e.g. cooper: Isaac Lab PPO fine-tuned from BC; aquila/raptor-torch: SAC teachers → DAgger student; TVC rocket; Unitree G1 motion tracking). The problem this skill solves: after a few days it's unclear what was tried and why a reward change helped. Project specifics (where runs are recorded, which metric counts, where run dirs live) come from the repo's CLAUDE.md (its `## Experiments` section if it has one), not from this skill. Use the `isaac` skill for the code itself; this skill is for the record around it.
 
 ## Resolve the log first
 
 Once per project, pick where entries go, in this order:
 
-1. The project CLAUDE.md/AGENTS.md has a `## Experiments` section: use its `log:` path. Its other `key: value` lines fill the matching fields: `run-id:` prefix, `runs:` host:path of the run dirs, `metric:` the task metric, `eval:` the eval command, `framework:` rsl_rl|skrl|custom.
+1. The project CLAUDE.md has a `## Experiments` section: use its `log:` path. Its other `key: value` lines fill the matching fields: `run-id:` prefix, `runs:` host:path of the run dirs, `metric:` the task metric, `eval:` the eval command, `framework:` rsl_rl|skrl|custom.
 2. The repo already keeps a results ledger (`grep -rl 'Decision ledger' --include='*.md' .`; aquila: `raptor-torch/STATUS.md` ledger + `EVIDENCE.md`): write there in that ledger's own format. Map this skill's fields onto its columns and put the detail in its evidence doc. If the ledger takes results only, put the start block wherever the repo's doc map puts plans and pre-registrations (aquila: `PLAN.md` next actions, at that doc's own heading level), or ask if the map doesn't say; the ledger row and its evidence section land with the Verdict.
 3. Otherwise propose `experiments/LOG.md` (in a monorepo, next to the training package). First run `git check-ignore -q <path>`; if the path is ignored, use `docs/EXPERIMENTS.md` instead and say so. If the repo has a doc-ownership map (cooper's CLAUDE.md), ask before creating the file and add it to the map in the same change.
 

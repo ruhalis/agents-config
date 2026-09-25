@@ -18,7 +18,7 @@ Bundled files. `${CLAUDE_SKILL_DIR}` is the directory holding this SKILL.md (Cla
 | `scripts/check_toolchain.sh` | Run. Read-only: is IDF installed, does it match the pin, which chips and debuggers are installed, does `export.sh` work, which boards are on USB and through what (native USB or which bridge). |
 | `scripts/serial_tail.py` | Run. Bounded serial reader that replaces `idf.py monitor` in tool calls. |
 
-Running outside Claude Code. The installed copy for Claude Code and Codex is a symlink to `~/projects/agents-config/core/skills/esp-idf`. In Cowork, the cloud copy of this skill is for reading `idf-version`, `setup-macos.md` and the scripts' source: `check_toolchain.sh`, `idf.py` and `serial_tail.py` need the Mac's toolchain and serial ports, and the sandboxed shell mounts only connected folders, with no `~/esp` and no `/dev/cu.*`. Run them in a real macOS shell (Desktop Commander's `start_process`) with `CLAUDE_SKILL_DIR=$HOME/projects/agents-config/core/skills/esp-idf;` set first as its own statement (a `VAR=... cmd` prefix does not expand `${CLAUDE_SKILL_DIR}` in cmd), so the commands below work unchanged. If no macOS shell is available, hand the user the exact command.
+Running outside Claude Code. The installed copy for Claude Code is a symlink to `~/projects/agents-config/core/skills/esp-idf`. In Cowork, the cloud copy of this skill is for reading `idf-version`, `setup-macos.md` and the scripts' source: `check_toolchain.sh`, `idf.py` and `serial_tail.py` need the Mac's toolchain and serial ports, and the sandboxed shell mounts only connected folders, with no `~/esp` and no `/dev/cu.*`. Run them in a real macOS shell (Desktop Commander's `start_process`) with `CLAUDE_SKILL_DIR=$HOME/projects/agents-config/core/skills/esp-idf;` set first as its own statement (a `VAR=... cmd` prefix does not expand `${CLAUDE_SKILL_DIR}` in cmd), so the commands below work unchanged. If no macOS shell is available, hand the user the exact command.
 
 ## Fixed decisions
 
@@ -72,10 +72,10 @@ ioreg -p IOUSB -l -w0 | grep -E '"(USB Product Name|idVendor|idProduct|USB Seria
 
 Resolve the port in this order:
 
-1. A `## Boards` section in `CLAUDE.md`, `CLAUDE.local.md` or `AGENTS.md`, in the project directory or the repo root. Not every tool loads these files, so read them:
+1. A `## Boards` section in `CLAUDE.md` or `CLAUDE.local.md`, in the project directory or the repo root. They are loaded only when `<dir>` is under the session's working directory, so read them explicitly:
 
    ```bash
-   for d in "<dir>" "$(git -C "<dir>" rev-parse --show-toplevel 2>/dev/null)"; do grep -hA12 '^## Boards' "$d"/{CLAUDE.md,CLAUDE.local.md,AGENTS.md} 2>/dev/null; done | awk '!s[$0]++'
+   for d in "<dir>" "$(git -C "<dir>" rev-parse --show-toplevel 2>/dev/null)"; do grep -hA12 '^## Boards' "$d"/{CLAUDE.md,CLAUDE.local.md} 2>/dev/null; done | awk '!s[$0]++'
    ```
 
    The `awk` drops the second copy when `<dir>` is the repo root. No output means no section.
@@ -162,7 +162,7 @@ One short paragraph: what was built, whether it was flashed and to which port, a
 
 ## When delegating
 
-`fast-executor` and `verifier` have Bash but not this skill (it is not preloaded into them, so it does not ride along on every delegation). When a build, a fix-and-rebuild or a check goes to one of them, paste this into its prompt with `<dir>` and `<port>` filled in. The reader's path in it is the installed link, which any shell resolves (under Codex, `~/.codex/skills/esp-idf`), not a skill-directory variable a subagent's shell does not have. Flashing, erasing, resets and choosing the port stay with you.
+`fast-executor` and `verifier` have Bash but not this skill (it is not preloaded into them, so it does not ride along on every delegation). When a build, a fix-and-rebuild or a check goes to one of them, paste this into its prompt with `<dir>` and `<port>` filled in. The reader's path in it is the installed link, which any shell resolves, not a skill-directory variable a subagent's shell does not have. Flashing, erasing, resets and choosing the port stay with you.
 
 ```text
 ESP-IDF project at <dir>. Start every Bash call that runs idf.py or serial_tail.py with

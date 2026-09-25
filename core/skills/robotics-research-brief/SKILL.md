@@ -75,7 +75,7 @@ Fix anything that fails, then re-check before saving.
 
 ## Saving
 
-Vault = `/Users/ruhalis/obsidian/ruhalis` (a plain folder, so no connector is needed). Save to the folder named by `newFileFolderPath` in its `.obsidian/app.json` (currently "0. Files/6. Inbox") unless the user names another folder, if that folder exists and is writable (`test -w`). Filename: "<Topic> brief YYYY-MM-DD.md", with none of / \ : # ^ | [ ] % * ? " < >. Never overwrite an existing note; append " 2". If the vault or folder is missing or not writable (other machine, Codex sandbox, claude.ai), save to `docs/briefs/` in the current repo or return the brief inline, and name the vault folder it belongs in. Always report the path.
+Vault = `/Users/ruhalis/obsidian/ruhalis` (a plain folder, so no connector is needed). Save to the folder named by `newFileFolderPath` in its `.obsidian/app.json` (currently "0. Files/6. Inbox") unless the user names another folder, if that folder exists and is writable (`test -w`). Filename: "<Topic> brief YYYY-MM-DD.md", with none of / \ : # ^ | [ ] % * ? " < >. Never overwrite an existing note; append " 2". If the vault or folder is missing or not writable (other machine, claude.ai), save to `docs/briefs/` in the current repo or return the brief inline, and name the vault folder it belongs in. Always report the path.
 
 ## Peer-review mode
 
@@ -89,7 +89,7 @@ When the user says the brief is for a paper or thesis, or asks for related work 
 
 ## Degradation
 
-- No live web (e.g., Codex web_search cached or disabled): say so in the Bottom line and mark facts that may be newer than the index "(unverified)".
+- No live web (e.g., WebSearch unavailable or disabled): say so in the Bottom line and mark facts that may be newer than the index "(unverified)".
 - A fact you cannot confirm: "(unverified)".
 - Paywalled paper: use the arXiv version or abstract and say so.
 - Cannot ask the user: state the assumed decision axis and platform in the Question line.

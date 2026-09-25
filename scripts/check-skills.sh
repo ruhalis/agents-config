@@ -26,7 +26,7 @@
 #   - a file a script reads as ${SKILL_DIR}/<file> (the version pins) that is missing
 # and warns, without failing, on __pycache__, *.pyc or .DS_Store inside a skill.
 #
-# Then every ~/.claude|.codex/skills/<name>/<path> in the *.md files under
+# Then every ~/.claude/skills/<name>/<path> in the *.md files under
 # ~/projects must resolve in core/skills, since other repos call bundled scripts
 # by those paths.
 #
@@ -329,7 +329,7 @@ def check_skill(skill):
 
 # ---- references from other repos ----
 
-REF_RE = re.compile(r"(?:~|\$HOME|\$\{HOME\}|/Users/[^/\s`'\"]+)/\.(claude|codex)/skills/"
+REF_RE = re.compile(r"(?:~|\$HOME|\$\{HOME\}|/Users/[^/\s`'\"]+)/\.claude/skills/"
                     r"([\w.-]+)((?:/[\w.@+-]*)*)")
 PRUNE = {".git", "node_modules", ".venv", "venv", "__pycache__", "build", "managed_components"}
 
@@ -349,14 +349,13 @@ def scan_refs(root, names):
                 continue
             for n, line in enumerate(lines, 1):
                 for m in REF_RE.finditer(line):
-                    tool, name, rest = m.groups()
+                    name, rest = m.groups()
                     ref = m.group(0).rstrip(".")
                     rest = rest.rstrip(".").strip("/")
                     if name.startswith(".") or name == "synced":
                         continue
                     if name not in names:
-                        if tool == "claude":
-                            bad.append(f"{tilde(p)}:{n} {ref}: no core/skills/{name}")
+                        bad.append(f"{tilde(p)}:{n} {ref}: no core/skills/{name}")
                         continue
                     files.add(p)
                     if rest and not (SKILLS / name / rest).exists():
