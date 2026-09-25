@@ -1,5 +1,4 @@
 {
-  "model": "claude-fable-5-1[1m]",
   "enableWorkflows": true,
   "statusLine": {
     "type": "command",
@@ -21,6 +20,12 @@
   "effortLevel": "xhigh",
   "modelSettings": {
     "claude-opus-5": {
+      "effortLevel": "xhigh"
+    },
+    "claude-opus-5-5": {
+      "effortLevel": "high"
+    },
+    "claude-fable-5-1": {
       "effortLevel": "xhigh"
     }
   },

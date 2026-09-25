@@ -100,7 +100,7 @@ To capture what you've installed since, append the new IDs from `code --list-ext
 
 **Read-only intent** is inferred from the `tools:` line rather than declared separately — an agent with no `Edit`/`Write` only advises. On Codex that becomes `sandbox_mode = "read-only"`, which is a genuine upgrade: `deep-reasoner` and `verifier` say "never modify files" as a prompt instruction in Claude, but Codex *enforces* it.
 
-**Model tier.** `model: sonnet` maps to `CODEX_FAST_MODEL` in `adapters/codex/models.env`. Agents with no `model:` inherit the session model, and nothing is emitted for them. An unrecognized model name warns rather than guessing.
+**Model tier.** `model: sonnet` maps to `CODEX_FAST_MODEL` in `adapters/codex/models.env`. Agents with no `model:` inherit the session model, and nothing is emitted for them. An unrecognized model name warns rather than guessing. `effort:` is Claude-only (it overrides the session effort while that agent runs); every generated Codex agent gets `model_reasoning_effort = "high"`.
 
 The top-level Codex `model` key is deliberately *not* managed — which models you can select depends on your plan and auth mode, so this repo won't silently repoint it. Uncomment it in `adapters/codex/config.toml` if you want it owned here.
 
