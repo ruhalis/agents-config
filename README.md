@@ -98,10 +98,12 @@ Each `link` line says `new`, `exists` (already that link) or `replace`, so `--dr
 
 ## Agents & orchestration
 
-`adapters/claude/CLAUDE.md` sets the main agent up as an orchestrator that plans, decomposes, delegates, and synthesizes, routing to three specialists:
+`adapters/claude/CLAUDE.md` has the main agent work directly by default and delegate only in named cases: wide searches, hard self-contained questions, independent parallel work on separate files, independent checks at milestones, and forks for side tasks that need the conversation. It splits work by context rather than by role, and keeps workflows to one per request once the user opts in. It routes to three specialists:
 
-- **deep-reasoner** (session model, read-only) — plans, architecture, complex debugging, algorithm design.
-- **fast-executor** (cheap fast model) — boilerplate, tests, formatting, patterned edits.
-- **verifier** (session model, read-only) — checks the integrated result against the original acceptance criteria and reports evidence.
+- **deep-reasoner** (session model at xhigh, read-only) — hard design decisions, plans for large or risky changes, complex debugging, algorithm design.
+- **fast-executor** (cheap fast model) — boilerplate, formatting, patterned edits across separate files.
+- **verifier** (session model, read-only) — at milestones, after long unattended work or on high-stakes changes, checks the integrated result against the acceptance criteria and reports evidence.
+
+Verification by subagent is deliberately not mandatory: Anthropic's guidance is that a fresh-context check matters more the longer Claude works unattended, and that reviewer subagents on routine work add cost without improving quality. The three specialists have no `Skill` tool: esp-idf hands them a restricted prompt block instead, and hardware actions (flashing, resets, motors) stay with the main session.
 
 Agents are linked from `core/agents/*.md` as-is; `model:` and `effort:` in their frontmatter apply directly.

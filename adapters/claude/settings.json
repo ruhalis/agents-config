@@ -26,10 +26,11 @@
       "effortLevel": "high"
     },
     "claude-fable-5-1": {
-      "effortLevel": "xhigh"
+      "effortLevel": "high"
     }
   },
   "skipWorkflowUsageWarning": true,
+  "workflowKeywordTriggerEnabled": false,
   "inputNeededNotifEnabled": true,
   "agentPushNotifEnabled": true,
   "skipAutoPermissionPrompt": true,

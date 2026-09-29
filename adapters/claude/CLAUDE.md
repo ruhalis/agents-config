@@ -1,46 +1,35 @@
 # Orchestration
 
-For substantive tasks, prefer to plan, decompose, delegate, and synthesize rather than doing everything inline. Preserve your own context for coordination and judgment; spend subagent context on exploration and execution. Use your own judgment on when delegation helps — see "When NOT to orchestrate" below.
+This section is for the main conversation. If you are a subagent or a workflow agent, skip it: do the task you were given yourself, following your own system prompt.
 
-## Workflow
+Work directly by default. Delegation costs several times the tokens and loses context at every handoff, so it has to buy something: a clean main context, real parallelism, or an independent check. When one of the cases below applies, use the Agent tool the way that case says; otherwise do the work yourself.
 
-1. **Plan** — understand the goal, scope the work, identify what's known vs. what needs investigation.
-2. **Decompose** — split into self-contained subtasks with clear inputs and acceptance criteria. Run independent subtasks in parallel.
-3. **Delegate** — route each subtask to the right specialist (see routing below), with a precise prompt: relevant files/paths, constraints, the pattern to follow, and what "done" looks like.
-4. **Synthesize** — you own the final result. Integrate subagent outputs, resolve conflicts between them, verify the combined result actually satisfies the original ask, and report it coherently. Never paste subagent output through unreviewed.
+## When to delegate
 
-## The specialists
+- **Wide search or reading.** When an answer means sweeping many files or directories, use the Agent tool with `Explore` (say "medium" or "very thorough"); it locates things from excerpts. When it means digesting long logs or docs you won't need afterwards, use `general-purpose`, which reads them in full. Keep only the conclusion.
+- **Hard, self-contained question.** For a root cause you can't pin down, a design choice where a wrong call is expensive, the plan for a large or risky change, or an algorithm, use the Agent tool with `deep-reasoner`. Send the full problem context; it returns a decision you act on.
+- **Independent parallel work.** When a change splits into sizeable parts that touch separate files, use the Agent tool with `fast-executor` for the mechanical parts, one per set of files, launched together. Anything you can finish in a handful of tool calls stays with you.
+- **Independent check.** At a milestone of a multi-part change, after long unattended work, or on a high-stakes change, use the Agent tool with `verifier` against the acceptance criteria; for a plain correctness review of a diff, `/code-review` also works. Routine work you can check yourself by running the tests doesn't need it.
+- **Side task that needs this conversation.** When a fresh subagent would need too much background to be useful, fork the conversation (`subagent_type: "fork"`) instead of re-explaining it.
+- **Big fan-out.** For codebase-wide audits, migrations, or more than about five parallel units, suggest a workflow to the user (you can start one once the user opts in) or `/batch` (only the user can run it) rather than launching a pile of Agent calls.
 
-Three roles are installed as subagents in `~/.claude/agents/`:
+## Splitting and handing off
 
-- **deep-reasoner** (inherits the session model) — reasoning-heavy phases that deserve a fresh context: implementation plans, architecture decisions, debugging complex or subtle issues, algorithm design, high-stakes trade-offs. Send it the full problem context; it returns a concise conclusion you act on. Use it to offload long investigations rather than burning your own context on them. Read-only: it advises, you implement.
-- **fast-executor** (cheap, fast model) — mechanical, well-specified work: boilerplate, straightforward tests, formatting/lint fixes, renames, patterned edits across files, config tweaks. It executes exactly what you specify, so spell out files, the example to copy, and the verification command. Fan out multiple executors for repetitive work across many files.
-- **verifier** (inherits the session model) — after implementation, checks the integrated result against the original acceptance criteria with fresh eyes: runs the tests, reads the diff critically, probes edge cases. It reports evidence (actual command output) and never fixes anything itself. A fresh-context verifier outperforms self-review; use it on any multi-part change before declaring the task done.
+- Split by context, not by role. The agent that implements a part also writes its tests, and planning, implementation and testing that share context stay in one place, usually here. Don't chain planner → implementer → reviewer by default.
+- One writer per file. Parallel executors get disjoint sets of files; if they must overlap, run them one after another. (`isolation: "worktree"` branches by default from the pushed default branch, not your working tree, so it only suits work that starts from there.)
+- Every delegation prompt stands on its own, because subagents see none of this conversation: the goal and why it matters, file paths, constraints, the pattern to follow, what "done" looks like, and for `fast-executor` the exact scope (every file, every occurrence, which tests to add or update).
+- `deep-reasoner`, `fast-executor` and `verifier` can't load skills. When work a skill covers goes to one of them and the skill has a "When delegating" block (esp-idf does), paste that block into the prompt. Hardware actions such as flashing, resets, or anything that moves a motor stay with you whichever agent you delegate to, because the safety steps for them live in skills those agents can't load.
+- You own the result: integrate outputs, resolve conflicts between them, and never pass subagent output through unreviewed. A reviewer asked to find problems usually reports some even when the work is sound, so fix the findings that affect correctness or the acceptance criteria and treat the rest as optional. If an agent comes back off-spec, correct it with `SendMessage` while its context is still useful, or re-delegate once with a better prompt; if it's still wrong, do it yourself.
 
-Typical flow for a feature or fix: deep-reasoner produces the plan → you split it → fast-executor instances implement the mechanical parts in parallel → verifier checks the integrated result against the original acceptance criteria → you fix what it finds and handle anything subtle yourself.
+## Workflows
 
-For broad codebase searches and research, delegate too — you want the conclusion, not a file dump in your context.
+When the user opts into a workflow (they ask for one, or the session has ultracode on through `/effort ultracode` or the `ultracode` setting), default to one workflow per request unless they ask for phases, and state the planned agent count before launching it, so the user can cut it down first.
 
-## When NOT to orchestrate
+## Mechanics
 
-Handle directly, without subagents:
-
-- Conversational turns, questions you can answer from context, single-fact lookups in a known file.
-- Trivial edits (a few lines, one file) where delegation overhead exceeds the work.
-- Anything mid-conversation that depends on nuanced context you'd have to re-explain at length.
-
-Delegation is a tool for scale and quality, not a ritual. If a subagent's result comes back wrong or off-spec, fix the prompt and re-delegate once; if it's still wrong, do it yourself.
-
-## Routing in Claude Code
-
-Delegate with the **Agent** tool, naming the subagent in `subagent_type`. To run independent subtasks concurrently, issue **multiple Agent calls in a single message** — separate messages run them serially.
-
-- `deep-reasoner` — tools: Read, Grep, Glob, Bash, WebSearch, WebFetch. Cannot edit; it advises. Runs at `xhigh` effort whatever the session level.
-- `fast-executor` — tools: Read, Edit, Write, Grep, Glob, Bash. Runs on Sonnet at `medium` effort.
-- `verifier` — tools: Read, Grep, Glob, Bash. Cannot edit; it reports.
-- `Explore` — read-only fan-out search when you need conclusions, not file dumps. Specify breadth ("medium", "very thorough").
-- `general-purpose` — research and multi-step tasks that need the full tool set.
-
-Use `SendMessage` to continue an existing agent with its context intact; a fresh `Agent` call starts from zero. Background agents notify you on completion — never predict their results before the notification arrives.
-
-Skills are invoked with the **Skill** tool by name. Check the available-skills list rather than guessing names.
+- Subagents run in the background. Launch independent ones in the same message, keep working on whatever doesn't depend on them, and wait for each completion notification before using its result; never predict it.
+- `deep-reasoner`: read-only (Read, Grep, Glob, Bash, WebSearch, WebFetch), session model at `xhigh` effort.
+- `fast-executor`: Read, Edit, Write, Grep, Glob, Bash; Sonnet at `medium` effort.
+- `verifier`: read-only (Read, Grep, Glob, Bash), session model; reports evidence and fixes nothing.
+- `Explore` and `Plan` skip CLAUDE.md, so restate any project rule they need in the prompt.
+- Skills are invoked with the **Skill** tool by name. Check the available-skills list rather than guessing names.
