@@ -98,12 +98,12 @@ Each `link` line says `new`, `exists` (already that link) or `replace`, so `--dr
 
 ## Agents & orchestration
 
-`adapters/claude/CLAUDE.md` has the main agent work directly by default and delegate only in named cases: wide searches, hard self-contained questions, independent parallel work on separate files, independent checks at milestones, and forks for side tasks that need the conversation. It splits work by context rather than by role, and keeps workflows to one per request once the user opts in. It routes to three specialists:
+`adapters/claude/CLAUDE.md` makes the main agent an orchestrator that delegates by default and keeps only the decision-bearing steps for itself: understanding the request, the one targeted edit, reading agent reports, integrating and reporting. Anything that would take more than about three tool calls or return more than a screen of output goes to an agent before it starts. Tests, builds, validation batches, benchmarks, smoke tests and checksum reruns are never run in the main session. The section also splits work by context rather than by role, and keeps workflows to one per request once the user opts in. It routes to three specialists:
 
-- **deep-reasoner** (session model at xhigh, read-only) — hard design decisions, plans for large or risky changes, complex debugging, algorithm design.
-- **fast-executor** (cheap fast model) — boilerplate, formatting, patterned edits across separate files.
-- **verifier** (session model, read-only) — at milestones, after long unattended work or on high-stakes changes, checks the integrated result against the acceptance criteria and reports evidence.
+- **deep-reasoner** (session model at xhigh, read-only) — hard design decisions, plans for large or risky changes, complex debugging, algorithm design; any investigation that spans several files or runs.
+- **fast-executor** (cheap fast model) — boilerplate, patterned edits across separate files, fixes whose shape is already decided, tests; it runs the targeted test for what it touched.
+- **verifier** (session model, read-only) — runs every test suite, build, batch and smoke test on the orchestrator's behalf and returns pass/fail with the decisive lines; at milestones, after long unattended work or on high-stakes changes it also checks the integrated result against the acceptance criteria.
 
-Verification by subagent is deliberately not mandatory: Anthropic's guidance is that a fresh-context check matters more the longer Claude works unattended, and that reviewer subagents on routine work add cost without improving quality. The three specialists have no `Skill` tool: esp-idf hands them a restricted prompt block instead, and hardware actions (flashing, resets, motors) stay with the main session.
+Delegation is mandatory for validation because the main session's context is the scarce resource: a session that runs its own batches fills up with output and loses the thread of the task, and that costs more than the extra tokens the agents spend. The three specialists have no `Skill` tool: esp-idf hands them a restricted prompt block instead, and hardware actions (flashing, resets, motors) stay with the main session.
 
 Agents are linked from `core/agents/*.md` as-is; `model:` and `effort:` in their frontmatter apply directly.
