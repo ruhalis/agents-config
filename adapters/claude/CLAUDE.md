@@ -39,3 +39,17 @@ When the user opts into a workflow (they ask for one, or the session has ultraco
 - `verifier`: read-only (Read, Grep, Glob, Bash), session model; runs the checks, reports evidence and fixes nothing.
 - `Explore` and `Plan` skip CLAUDE.md, so restate any project rule they need in the prompt.
 - Skills are invoked with the **Skill** tool by name. Check the available-skills list rather than guessing names.
+
+# Python
+
+This section applies to every agent, subagents included.
+
+Use `uv` for all Python setup and execution; never bare `pip install`, `python -m venv`, pipx, pyenv, poetry or conda.
+
+- **Projects:** `uv init`, `uv add <pkg>` (`--dev` for dev tools), `uv sync`, and `uv run <cmd>` to execute, so dependencies live in `pyproject.toml` and `uv.lock`.
+- **Single scripts:** inline metadata (`uv add --script file.py <pkg>`) and `uv run file.py`; for a one-off, `uv run --with <pkg> ...`.
+- **CLI tools:** `uvx <tool>` to run once, `uv tool install <tool>` to keep.
+- **Interpreters:** `uv python install <version>`; pin with `uv python pin`.
+- **No `pyproject.toml` and not worth adding one:** `uv venv` then `uv pip install`.
+
+Exceptions: toolchains that ship their own Python keep it (ESP-IDF's environment from `install.sh`/`export.sh`, Isaac Sim/Lab's `python.sh`/`isaaclab.sh`, KiCad's bundled Python), and a repo already on another tool stays on it unless the user asks to migrate.
