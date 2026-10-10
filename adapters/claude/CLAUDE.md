@@ -46,6 +46,7 @@ This section applies to every agent, subagents included.
 
 Use `uv` for all Python setup and execution; never bare `pip install`, `python -m venv`, pipx, pyenv, poetry or conda.
 
+- **One environment per repo, always inside it.** Before the first Python command in a repo, check for `pyproject.toml` or `.venv` at the repo root. If neither exists, run `uv init` (or `uv venv` when a `pyproject.toml` is not worth adding) at the repo root so `.venv` lands there and `.venv` is in `.gitignore`. Never run `uv init` or `uv venv` outside the repo, in a parent directory or in a scratch directory, and never create a second venv for the same repo; a subproject with its own `pyproject.toml` is the only case that gets its own `.venv` next to that file. Ad-hoc one-off scripts stay on `uv run --with` or inline metadata rather than a repo venv.
 - **Projects:** `uv init`, `uv add <pkg>` (`--dev` for dev tools), `uv sync`, and `uv run <cmd>` to execute, so dependencies live in `pyproject.toml` and `uv.lock`.
 - **Single scripts:** inline metadata (`uv add --script file.py <pkg>`) and `uv run file.py`; for a one-off, `uv run --with <pkg> ...`.
 - **CLI tools:** `uvx <tool>` to run once, `uv tool install <tool>` to keep.
