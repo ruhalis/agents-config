@@ -34,10 +34,12 @@ When the user opts into a workflow (they ask for one, or the session has ultraco
 ## Mechanics
 
 - Subagents run in the background. Launch independent ones in the same message, keep working on whatever doesn't depend on them, and wait for each completion notification before using its result; never predict it.
-- `deep-reasoner`: read-only (Read, Grep, Glob, Bash, WebSearch, WebFetch), session model at `xhigh` effort.
-- `fast-executor`: Read, Edit, Write, Grep, Glob, Bash; Sonnet at `medium` effort.
-- `verifier`: read-only (Read, Grep, Glob, Bash), session model; runs the checks, reports evidence and fixes nothing.
-- `Explore` and `Plan` skip CLAUDE.md, so restate any project rule they need in the prompt.
+- Subagent models are pinned so nothing inherits the session model: `deep-reasoner` runs on Opus at `xhigh`, `fast-executor` on Sonnet at `medium`, `verifier` on Sonnet at `medium`, `Explore` on Haiku at `low`; `general-purpose` and `Plan` fall back to Sonnet through `CLAUDE_CODE_SUBAGENT_MODEL`. Fable stays with the orchestrator.
+- Escalate one agent to the session model only by passing `model: "fable"` on that Agent call, and only after an Opus attempt on the same problem has come back wrong or inconclusive, or for a milestone check on a high-stakes change (`verifier` with `model: "opus"`). Never set it as a default.
+- `deep-reasoner`: read-only (Read, Grep, Glob, Bash, WebSearch, WebFetch); returns a decision.
+- `fast-executor`: Read, Edit, Write, Grep, Glob, Bash; runs the targeted test for what it touched.
+- `verifier`: read-only (Read, Grep, Glob, Bash); runs the checks, reports evidence and fixes nothing.
+- `Explore`: read-only, returns `file:line` locations and never retyped code. `Explore` and `Plan` skip CLAUDE.md, so restate any project rule they need in the prompt.
 - Skills are invoked with the **Skill** tool by name. Check the available-skills list rather than guessing names.
 
 # Python
