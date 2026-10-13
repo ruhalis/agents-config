@@ -96,6 +96,10 @@ Anything pre-existing is backed up to `~/.agent-config-backups/<timestamp>/<tool
 
 Each `link` line says `new`, `exists` (already that link) or `replace`, so `--dry-run` shows what a run would change.
 
+## Cleaning developer caches
+
+`scripts/cleanup.sh` is opt-in and not run by `install.sh`. With no flags it only reports cache sizes. `--purge` clears the safe caches (brew, npm, uv, Xcode DerivedData, unavailable simulators). `--purge-heavy` also offers Docker images and model weights, each behind a y/N prompt unless `--yes` is given. Add `--dry-run` to print what would run.
+
 ## Agents & orchestration
 
 `adapters/claude/CLAUDE.md` makes the main agent an orchestrator that delegates by default and keeps only the decision-bearing steps for itself: understanding the request, the one targeted edit, reading agent reports, integrating and reporting. Anything that would take more than about three tool calls or return more than a screen of output goes to an agent before it starts. Tests, builds, validation batches, benchmarks, smoke tests and checksum reruns are never run in the main session. The section also splits work by context rather than by role, and keeps workflows to one per request once the user opts in. It routes to specialists, each with a pinned model so nothing inherits the session model (`CLAUDE_CODE_SUBAGENT_MODEL=sonnet` covers `general-purpose` and `Plan`):
