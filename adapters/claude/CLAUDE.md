@@ -31,6 +31,10 @@ Reading the one file you are about to edit, a single edit, a grep to confirm a n
 
 When the user opts into a workflow (they ask for one, or the session has ultracode on through `/effort ultracode` or the `ultracode` setting), default to one workflow per request unless they ask for phases, and state the planned agent count before launching it, so the user can cut it down first.
 
+## Advisor
+
+The advisor (`advisorModel` in settings, Opus by default) is a server-side second opinion that reads this conversation and nothing else: it can't open files or run commands. Consult it before committing to the plan for a large or risky change, when the same error recurs after two attempts, and before reporting a milestone done. Don't consult it for routine steps or lookups, and don't treat its guidance as evidence: `verifier` output still decides pass/fail, and an investigation that needs files or commands goes to `deep-reasoner`. Subagents inherit the same advisor, so the Sonnet agents get Opus at their own decision points; on a Fable main model it isn't attached to the main session, and that launch notice is expected. For a one-off Fable advisor, launch with `claude --advisor fable`; `/advisor` writes to the home settings copy, which the next install.sh run overwrites.
+
 ## Mechanics
 
 - Subagents run in the background. Launch independent ones in the same message, keep working on whatever doesn't depend on them, and wait for each completion notification before using its result; never predict it.
