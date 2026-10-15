@@ -44,7 +44,7 @@ The advisor (`advisorModel` in settings, Opus by default) is a server-side secon
 - `deep-reasoner`: read-only (Read, Grep, Glob, Bash, WebSearch, WebFetch); returns a decision.
 - `fast-executor`: Read, Edit, Write, Grep, Glob, Bash; runs the targeted test for what it touched.
 - `verifier`: read-only (Read, Grep, Glob, Bash); runs the checks, reports evidence and fixes nothing.
-- `Explore`: read-only, returns `file:line` locations and never retyped code. `Explore` and `Plan` skip CLAUDE.md, so restate any project rule they need in the prompt.
+- `Explore`: read-only, returns `file:line` locations and never retyped code. `Explore` (`omitClaudeMd: true`; without it a user-level override loads CLAUDE.md like any custom agent) and the built-in `Plan` skip CLAUDE.md, so restate any project rule they need in the prompt.
 - Skills are invoked with the **Skill** tool by name. Check the available-skills list rather than guessing names.
 
 # Python
