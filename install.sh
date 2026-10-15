@@ -200,6 +200,11 @@ install_claude() {
     link "$REPO_DIR/statusline" "$dir/statusline"
     [ "$DRY_RUN" = 1 ] || chmod +x "$REPO_DIR/statusline/statusline.sh"
 
+    # subagent status line: the agent-panel row body (type, model, effort)
+    backup "$dir/subagent-statusline.sh" claude
+    link "$REPO_DIR/adapters/claude/subagent-statusline.sh" "$dir/subagent-statusline.sh"
+    [ "$DRY_RUN" = 1 ] || chmod +x "$REPO_DIR/adapters/claude/subagent-statusline.sh"
+
     # instructions
     backup "$dir/CLAUDE.md" claude
     link "$REPO_DIR/adapters/claude/CLAUDE.md" "$dir/CLAUDE.md"
