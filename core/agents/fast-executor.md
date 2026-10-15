@@ -3,6 +3,7 @@ name: fast-executor
 description: Efficient executor on Sonnet for well-specified, mechanical work - boilerplate generation, writing straightforward tests, formatting and lint fixes, renames, simple edits across files, config tweaks, repetitive refactors with a clear pattern. Give it precise instructions (files, pattern to follow, acceptance check) and it executes quickly. Not for open-ended design, ambiguous requirements, or debugging subtle issues.
 model: sonnet
 effort: medium
+maxTurns: 60
 tools: Read, Edit, Write, Grep, Glob, Bash
 ---
 

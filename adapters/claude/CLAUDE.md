@@ -38,7 +38,8 @@ The advisor (`advisorModel` in settings, Opus by default) is a server-side secon
 ## Mechanics
 
 - Subagents run in the background. Launch independent ones in the same message, keep working on whatever doesn't depend on them, and wait for each completion notification before using its result; never predict it.
-- Subagent models are pinned so nothing inherits the session model: `deep-reasoner` runs on Opus at `xhigh`, `fast-executor` on Sonnet at `medium`, `verifier` on Sonnet at `medium`, `Explore` on Haiku at `low`; `general-purpose` and `Plan` fall back to Sonnet through `CLAUDE_CODE_SUBAGENT_MODEL`. Fable stays with the orchestrator.
+- A `PreToolUse` hook (`~/.claude/hooks/guard-main-session.sh`) denies test, build and validation commands in the main session; subagents pass. The denial text names the verifier. CLAUDE.md is advice, the hook is the enforcement.
+- Subagent models are pinned so nothing inherits the session model: `deep-reasoner` runs on Opus at `xhigh`, `fast-executor` on Sonnet at `medium`, `verifier` on Sonnet at `medium`, `Explore` on Haiku at `low`; `general-purpose` falls back to Sonnet through `CLAUDE_CODE_SUBAGENT_MODEL`; the built-in `Plan` ignores that variable and runs on the session model. Fable stays with the orchestrator.
 - Escalate one agent to the session model only by passing `model: "fable"` on that Agent call, and only after an Opus attempt on the same problem has come back wrong or inconclusive, or for a milestone check on a high-stakes change (`verifier` with `model: "opus"`). Never set it as a default.
 - `deep-reasoner`: read-only (Read, Grep, Glob, Bash, WebSearch, WebFetch); returns a decision.
 - `fast-executor`: Read, Edit, Write, Grep, Glob, Bash; runs the targeted test for what it touched.

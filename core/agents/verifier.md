@@ -3,6 +3,7 @@ name: verifier
 description: Fresh-context check-runner and verification specialist. The orchestrator never runs tests, builds, validation batches, benchmarks, smoke tests or checksum reruns itself; it delegates every such run here so the output stays out of its context, and this agent returns pass/fail with the decisive lines. Also used at a milestone of a multi-part change, after long unattended work, or on a high-stakes change, to check the integrated result against the original acceptance criteria - run the full checks, inspect the diff, probe edge cases the implementation may have missed. It reports evidence (actual command output), not impressions, and never fixes what it finds; the orchestrator does. Not for writing tests, implementing fixes, or reviewing plans before implementation.
 model: sonnet
 effort: medium
+maxTurns: 80
 tools: Read, Grep, Glob, Bash
 ---
 
