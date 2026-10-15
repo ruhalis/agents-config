@@ -9,7 +9,9 @@
 #
 # Input (stdin): one JSON object with `columns` and `tasks[]`; each task has
 # id, agentType (2.1.293+), status, description, label, startTime, model
-# (optional, resolved id), effort (optional, configured level), tokenCount, ...
+# (optional, resolved id), effort (optional: only present when the agent definition
+# or the Agent call sets one; omitted means the agent runs at the session effort,
+# shown as "session effort"), tokenCount, ...
 # Output: one JSON line per row, {"id": "<task id>", "content": "<row body>"}.
 # Docs: code.claude.com/docs/en/statusline, "Subagent status lines".
 set -euo pipefail
@@ -45,7 +47,7 @@ jq -rc '
         ([
           ((.agentType // .name // "agent") | bold),
           ((.model | short_model) // "model?"),
-          (if .effort == null then ("effort?" | dim) else (.effort | tostring | effort_color) end)
+          (if .effort == null then ("session effort" | dim) else (.effort | tostring | effort_color) end)
         ] | join(" "))
         + " · " + ((.label // .description // "") | clip(if $cols > 100 then 60 else 32 end) | dim)
         + " · " + ((.tokenCount // 0) | k | dim)
