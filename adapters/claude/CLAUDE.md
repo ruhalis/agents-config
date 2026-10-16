@@ -19,6 +19,8 @@ You are the orchestrator, and your context is the scarce resource: once it fills
 
 Reading the one file you are about to edit, a single edit, a grep to confirm a name, and hardware actions (flashing, resets, anything that moves a motor), because their safety steps live in skills the agents can't load. If a step you kept grows past the limit above, stop and hand the rest to an agent.
 
+CAD model runs and snapshots (`cadgen`, `python src/<part>.py`, the text-to-cad plugin's `cad` skill) are design iteration, not validation: the agent doing the modelling must look at the PNG and change the model. Run them in the main session, a fork or `general-purpose`, never `verifier`, which can't load skills.
+
 ## Splitting and handing off
 
 - Split by context, not by role. The agent that implements a part also writes and runs its targeted tests; the full suite and the batches go to `verifier` once the parts are integrated. Don't chain planner → implementer → reviewer for every step.

@@ -75,7 +75,8 @@ The skills hold workflow and boundaries; project facts live in the project, in `
 | Section | Read by | Keys |
 |---|---|---|
 | `## Boards` | esp-idf | `<board name>: <serial port>` |
-| `## Hardware` | kicad-review, robotics-research-brief | `kicad:`, `pins:` (the firmware pin header), `mcu:`, `fab:`, `note:` |
+| `## Hardware` | kicad-review, pcb-enclosure, robotics-research-brief | `kicad:`, `pins:` (the firmware pin header), `mcu:`, `fab:`, `note:` |
+| `## Print` (optional) | pcb-enclosure | `printer:`, `nozzle:`, `material:`; absent means 0.4 mm nozzle, PLA or PETG |
 | `## Motors` | motor-bench | `rule:`, `rig:`, `program:`, `send:`, `probe:`, `moves:`, `stop:`, `user-only:`, `kill:`, `limits:`, `watchdog:`, `supply:`, `direction:`, `log:` |
 | `## Experiments` | rl-experiment-log | `log:`, `run-id:`, `runs:`, `metric:`, `eval:`, `framework:` |
 | `## Where things run` | robotics-research-brief | robot, GPUs and VRAM, Jetson, simulator versions |
