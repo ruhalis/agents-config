@@ -1,10 +1,10 @@
-# agents-config
+# claude-code-config
 
 Personal agent configuration for **Claude Code**, installed from one source of truth — plus the **VS Code** extension set.
 
 ```bash
-git clone --recurse-submodules https://github.com/ruhalis/agents-config ~/projects/agents-config
-cd ~/projects/agents-config
+git clone --recurse-submodules https://github.com/ruhalis/claude-code-config ~/projects/claude-code-config
+cd ~/projects/claude-code-config
 ./install.sh
 ```
 

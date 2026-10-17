@@ -27,7 +27,7 @@ Bundled files. `${CLAUDE_SKILL_DIR}` is the directory holding this SKILL.md (Cla
 | `references/layout-review.md` | Read in step 6. |
 | `references/jlcpcb-order.md` | Read in step 7. |
 
-Running outside Claude Code. In Cowork, run from the Mac copy at `~/projects/agents-config/core/skills/kicad-review`; the cloud copy is for reading `kicad-version`, `references/` and the scripts' source. `pin_diff.py`, `fab_diff.sh` and `selftest.sh` (stdlib python3) run anywhere their inputs are reachable, but `check_kicad.sh`, `erc_drc.sh`, `export_review.sh`, `fab_export.sh` and every `kicad-cli` call need `/Applications/KiCad`: run them in a real macOS shell (Desktop Commander's `start_process`; the sandboxed device shell mounts only connected folders) with `CLAUDE_SKILL_DIR=$HOME/projects/agents-config/core/skills/kicad-review;` set first as its own statement (a `VAR=... cmd` prefix does not expand it in cmd). No macOS shell: hand the user the exact command.
+Running outside Claude Code. In Cowork, run from the Mac copy at `~/projects/claude-code-config/core/skills/kicad-review`; the cloud copy is for reading `kicad-version`, `references/` and the scripts' source. `pin_diff.py`, `fab_diff.sh` and `selftest.sh` (stdlib python3) run anywhere their inputs are reachable, but `check_kicad.sh`, `erc_drc.sh`, `export_review.sh`, `fab_export.sh` and every `kicad-cli` call need `/Applications/KiCad`: run them in a real macOS shell (Desktop Commander's `start_process`; the sandboxed device shell mounts only connected folders) with `CLAUDE_SKILL_DIR=$HOME/projects/claude-code-config/core/skills/kicad-review;` set first as its own statement (a `VAR=... cmd` prefix does not expand it in cmd). No macOS shell: hand the user the exact command.
 
 ## Fixed decisions
 
